@@ -9,9 +9,12 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-//                .allowedOrigins("*")
+                .allowedOrigins("http://localhost:8080", "http://ec2-54-180-201-100.ap-northeast-2.compute.amazonaws.com:8080",
+                        "http://localhost:3000",
+                        "https://localhost:3000",
+                        "https://127.0.0.1:3000"
+                )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")   // 허용되는 Method
-                .allowedOriginPatterns("*") // 외부에서 들어오는 모든 url 을 허용
                 .allowedHeaders("*")    // 허용되는 헤더
                 .exposedHeaders("*")    // response의 모든 헤더 허용
                 .allowCredentials(true)    // 자격증명 허용
