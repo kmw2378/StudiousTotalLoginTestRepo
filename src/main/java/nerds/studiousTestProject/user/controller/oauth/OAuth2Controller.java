@@ -20,8 +20,7 @@ public class OAuth2Controller {
     private final OAuth2Service oAuth2Service;
 
     @GetMapping("/authorize/{provider}")
-    public TokenInfo authorize(@PathVariable String provider, @RequestParam String code, HttpServletResponse response) {
-        response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+    public TokenInfo authorize(@PathVariable String provider, @RequestParam String code) {
         return oAuth2Service.authorize(provider, code);
     }
 }
