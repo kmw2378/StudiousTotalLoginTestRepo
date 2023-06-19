@@ -29,15 +29,16 @@ public class SecurityConfig {
                 .csrf().disable()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
-                .cors()
-                .and()
                 .authorizeHttpRequests()
+                .requestMatchers(CorsUtils::isPreFlightRequest).permitAll() // Preflight request에 대해, 인증을 하지 않고 모든 요청을 허용
                 .requestMatchers("/*/signup/*").permitAll()
                 .requestMatchers("/*/login/*", "/members/logout").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
                 .requestMatchers("/members/test").hasRole("USER")
                 .requestMatchers("/members/reissue").hasRole("USER")
                 .requestMatchers("/oauth/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
                 .anyRequest().authenticated()
+                .and()
+                .cors()
                 .and()
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
         return http.build();
