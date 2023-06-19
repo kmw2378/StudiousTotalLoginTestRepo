@@ -2,6 +2,8 @@ package nerds.studiousTestProject.user.service.token;
 
 import lombok.RequiredArgsConstructor;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
+import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
+import nerds.studiousTestProject.user.exception.model.TokenNotFoundException;
 import nerds.studiousTestProject.user.repository.token.RefreshTokenRepository;
 import nerds.studiousTestProject.user.util.DateConverter;
 import nerds.studiousTestProject.user.util.JwtTokenProvider;
@@ -26,7 +28,7 @@ public class RefreshTokenService {
 
     public RefreshToken findRefreshTokenByEmail(String email) {
         return refreshTokenRepository.findById(email)
-                .orElseThrow(() -> new RuntimeException("토큰을 찾을 수 없습니다."));
+                .orElseThrow(() -> new TokenNotFoundException(ExceptionMessage.TOKEN_NOT_FOUND));
     }
 
     public void deleteRefreshTokenByEmail(String email) {

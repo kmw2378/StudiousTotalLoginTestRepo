@@ -9,6 +9,9 @@ import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.entity.Member;
 import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
+import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
+import nerds.studiousTestProject.user.exception.model.TokenCheckFailException;
+import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.repository.member.MemberRepository;
 import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
 import nerds.studiousTestProject.user.service.token.RefreshTokenService;
@@ -18,6 +21,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +44,7 @@ public class MemberService {
     public MemberSignUpResponse register(MemberSignUpRequest signUpRequest) {
         String email = signUpRequest.getEmail();
         if (memberRepository.existsByEmail(email)) {
-            throw new RuntimeException("이미 존재하는 이메일 입니다. -> " + email);
+            throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
 
         String encode = passwordEncoder.encode(signUpRequest.getPassword());
@@ -96,7 +100,7 @@ public class MemberService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getName() == null) {
             log.info("auth = {}", authentication);
-            throw new RuntimeException("인증 오류");
+            throw new UserAuthException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
         }
 
         String currentEmail = authentication.getName();
@@ -104,8 +108,8 @@ public class MemberService {
 
         if (redisRefreshToken == null || !refreshToken.equals(redisRefreshToken.getRefreshToken())) {
             log.info("refreshToken = {}", refreshToken);
-            log.info("redisRefreshToken = {}", redisRefreshToken.getRefreshToken());
-            throw new RuntimeException("토큰이 맞지 않음");
+            log.info("redisRefreshToken = {}", redisRefreshToken != null ? redisRefreshToken.getRefreshToken() : null);
+            throw new TokenCheckFailException(ExceptionMessage.MISMATCH_TOKEN);
         }
 
 //        Authorization 사용하여 패스워드 가져올 때 PROTECTED 되있으므로 DB에서 사용자 내역을 가져온다.
@@ -125,12 +129,12 @@ public class MemberService {
      */
     private Member authenticate(String email, String password) {
         if (!memberRepository.existsByEmail(email)) {
-            throw new RuntimeException("존재하지 않는 이메일입니다.");
+            throw new UserAuthException(ExceptionMessage.USER_NOT_FOUND);
         }
 
         Member member = memberRepository.findByEmail(email).get();
         if (!passwordEncoder.matches(password, member.getPassword())) {
-            throw new RuntimeException("비밀번호가 일치하지 않습니다.");
+            throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
         }
 
         return member;

@@ -13,6 +13,8 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
+import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
+import nerds.studiousTestProject.user.exception.model.TokenCheckFailException;
 import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -75,7 +77,7 @@ public class JwtTokenProvider {
         Claims claims = parseClaims(accessToken);
 
         if (claims.get(JwtTokenUtil.CLAIMS_AUTH) == null) {
-            throw new RuntimeException("권한 정보가 없는 토큰입니다.123");
+            throw new TokenCheckFailException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
         }
 
         // 클레임에서 권한 정보 가져오기
@@ -107,18 +109,17 @@ public class JwtTokenProvider {
             log.info("로그아웃 된 계정입니다.");
             return false;
         }
-
         try {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
             return true;
         } catch (SecurityException | MalformedJwtException e) {
-            log.info("Invalid JWT Token");
+            log.info("msg = {}", ExceptionMessage.INVALID_TOKEN.message());
         } catch (ExpiredJwtException e) {
-            log.info("Expired JWT Token");
+            log.info("msg = {}", ExceptionMessage.TOKEN_VALID_TIME_EXPIRED);
         } catch (UnsupportedJwtException e) {
-            log.info("Unsupported JWT Token");
+            log.info("msg = {}", ExceptionMessage.NOT_SUPPORTED_JWT);
         } catch (IllegalArgumentException e) {
-            log.info("JWT Claims String is empty.");
+            log.info("msg = {}", ExceptionMessage.TOKEN_NOT_FOUND);
         }
 
         return false;
@@ -160,7 +161,7 @@ public class JwtTokenProvider {
     }
 
     public void setRefreshTokenAtCookie(RefreshToken refreshToken) {
-        Cookie cookie = new Cookie("refresh_token", refreshToken.getRefreshToken());
+        Cookie cookie = new Cookie(JwtTokenUtil.TOKEN_TYPE_REFRESH, refreshToken.getRefreshToken());
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setMaxAge(refreshToken.getExpiration().getSecond());

@@ -10,6 +10,6 @@ public class JwtTokenUtil {
     // header
     public static final String TOKEN_HEADER = "Authorization";
     public static final String TOKEN_PREFIX = "Bearer";
-    private static final String KEY_ROLES = "roles";
+    public static final String TOKEN_TYPE_REFRESH = "refresh_token";
     public static final String CLAIMS_AUTH = "auth";
 }

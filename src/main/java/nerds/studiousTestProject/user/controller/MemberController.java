@@ -9,12 +9,12 @@ import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.service.member.MemberService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
@@ -44,6 +44,11 @@ public class MemberController {
         return memberService.reissue(refreshToken);
     }
 
+    /**
+     * USER 권한에서 잘 실행되는지 테스트하기 위한 메소드
+     * @return
+     */
+    @ResponseBody
     @GetMapping("/test")
     public String test() {
         return "success";
