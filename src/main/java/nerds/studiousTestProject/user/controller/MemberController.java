@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class MemberController {
     private final MemberService memberService;
 
-    @CrossOrigin(origins = "*")
     @PostMapping("/signup")
     public MemberSignUpResponse signUp(@RequestBody MemberSignUpRequest memberSignUpRequest) {
         return memberService.register(memberSignUpRequest);
