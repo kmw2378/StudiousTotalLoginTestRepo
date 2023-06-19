@@ -92,7 +92,7 @@ public class OAuth2Service {
                 new ObjectMapper(),
                 KakaoTokenRequest.builder()
                         .code(code)
-                        .grant_type("authorization_code")
+                        .grant_type(provider.getAuthorizationGrantType().getValue())
                         .redirect_uri(provider.getRedirectUri())
                         .client_id(provider.getClientId())
                         .build()
