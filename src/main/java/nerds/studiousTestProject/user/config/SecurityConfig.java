@@ -30,34 +30,15 @@ public class SecurityConfig {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeHttpRequests()
-                .requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
                 .requestMatchers("/*/signup/*").permitAll()
                 .requestMatchers("/*/login/*", "/members/logout").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
                 .requestMatchers("/members/test").hasRole("USER")
                 .requestMatchers("/members/reissue").hasRole("USER")
-//                .requestMatchers("/oauth/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
-                .anyRequest().permitAll()
+                .requestMatchers("/oauth/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
+                .anyRequest().authenticated()
                 .and()
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
         return http.build();
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-
-        config.addAllowedOrigin("http://localhost:3000"); // 프론트 로컬
-        config.addAllowedOrigin("http://localhost:8080"); // 백엔드 로컬
-        config.addAllowedOrigin("http://ec2-54-180-201-100.ap-northeast-2.compute.amazonaws.com:8080"); // 백엔드 IPv4 주소
-//        config.addAllowedOrigin("http://프론트 AWS  주소"); // 프론트 IPv4 주소
-        config.addAllowedMethod("*");   // 모든 메소드 허용.
-        config.addAllowedHeader("*");   // 모든 헤더 허용
-
-        config.setAllowCredentials(true);   // 쿠키 허용
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
     }
 
     @Bean
