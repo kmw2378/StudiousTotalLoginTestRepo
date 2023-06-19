@@ -36,7 +36,7 @@ public class SecurityConfig {
                 .requestMatchers("/members/test").hasRole("USER")
                 .requestMatchers("/members/reissue").hasRole("USER")
 //                .requestMatchers("/oauth/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
-                .anyRequest().authenticated()
+                .anyRequest().permitAll()
                 .and()
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
         return http.build();
