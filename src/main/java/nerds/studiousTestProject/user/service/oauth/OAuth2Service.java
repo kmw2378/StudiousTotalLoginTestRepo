@@ -95,7 +95,7 @@ public class OAuth2Service {
                 .build();
 
         // 기존 회원 정보에 없다면 저장
-        if (memberRepository.existsByEmail(email)) {
+        if (!memberRepository.existsByEmail(email)) {
             memberRepository.save(member);
         }
 
