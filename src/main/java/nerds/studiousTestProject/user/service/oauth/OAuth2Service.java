@@ -27,9 +27,6 @@ import nerds.studiousTestProject.user.util.MultiValueMapConverter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
@@ -52,7 +49,6 @@ import java.util.UUID;
 public class OAuth2Service {
     private final OAuth2TokenRepository oAuth2TokenRepository;
     private final InMemoryClientRegistrationRepository inMemoryClientRegistrationRepository;
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final LogoutAccessTokenService logoutAccessTokenService;
     private final RefreshTokenService refreshTokenService;
     private final MemberRepository memberRepository;
@@ -87,32 +83,35 @@ public class OAuth2Service {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
 
-        String encode = passwordEncoder.encode(password);
-        List<String> roles = Collections.singletonList("USER");
+        String encode = passwordEncoder.encode(password);   // 생성한 비밀번호를 인코딩 (굳이 할 필요?)
+        List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
+
+        // Member 정보 생성
         Member member = Member.builder()
                 .email(email)
                 .password(encode)
                 .roles(roles)
                 .type(MemberType.OAUTH)
                 .build();
+
+        // 기존 회원 정보에 없다면 저장
         if (memberRepository.existsByEmail(email)) {
             memberRepository.save(member);
         }
 
-        // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
-        oAuth2TokenRepository.save(
-                OAuth2Token.builder()
+        OAuth2Token oAuth2Token = OAuth2Token.builder()
                 .email(email)
                 .accessToken(kakaoTokenResponse.getAccess_token())
                 .refreshToken(kakaoTokenResponse.getRefresh_token())
                 .expiredAt(DateConverter.toLocalDateTime(kakaoTokenResponse.getExpires_in()))
-                .build()
-        );
+                .build();
+        log.info("oAuth2Token = {}", oAuth2Token);
 
-        Authentication authentication = getAuthentication(email, password); // 이메일, 비밀번호를 통해 인증 정보 생성
+        // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
+        oAuth2TokenRepository.save(oAuth2Token);
 
         // 만든 이메일, 비밀번호와 소셜 서버로부터 받아온 만료 기간을 통해 토큰 생성
-        String accessToken = jwtTokenProvider.createAccessToken(authentication);
+        String accessToken = jwtTokenProvider.createAccessToken(email, password);
 
         // Refresh 토큰 저장소에 만든 Refresh 토큰 저장
         RefreshToken refreshToken = refreshTokenService.saveRefreshToken(email);
@@ -154,10 +153,17 @@ public class OAuth2Service {
         logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(email, resolvedAccessToken, remainTime));
     }
 
+    /**
+     * 소셜 이름(구글, 카카오, 네이버 중 하나) 와 유저 속성을 통해 알맞는 OAuth2UserInfo 객체를 반환하는 메소드
+     * 팩토리 클래스 OAuth2UserInfoFactory 를 통해 소셜 이름에 알맞는 객체를 반환 (다형성 활용)
+     * @param providerName 소셜 이름(구글, 카카오, 네이버 중 하나)
+     * @param attributes 유저 속성
+     * @return 소셜 이름에 알맞는 OAuth2UserInfo 객체
+     */
     private OAuth2UserInfo getOAuth2UserInfo(String providerName, Map<String, Object> attributes) {
         OAuth2UserInfo oAuth2UserInfo;
         try {
-           oAuth2UserInfo  = OAuth2UserInfoFactory.getOAuth2UserInfo(providerName, attributes);
+           oAuth2UserInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(providerName, attributes);
         } catch (IllegalArgumentException e) {
             log.error("providerName = {}", providerName);
             log.error("attributes = {}", attributes);
@@ -167,6 +173,12 @@ public class OAuth2Service {
         return oAuth2UserInfo;
     }
 
+    /**
+     * 소셜 서버로 부터 토큰 요청을 하는 메소드
+     * @param code 프론트로부터 넘겨받은 인가 코드
+     * @param provider 소셜에 알맞는 Provider (redirect_uri, token_uri 등..)
+     * @return 소셜 서버로 부터 넘겨 받은 토큰 값들을 담은 객체
+     */
     private KakaoTokenResponse getSocialToken(String code, ClientRegistration provider) {
         KakaoTokenResponse kakaoTokenResponse = null;
         try {
@@ -187,6 +199,12 @@ public class OAuth2Service {
         return kakaoTokenResponse;
     }
 
+    /**
+     * 소셜 서버로 토큰 발급 요청 시 Body에 넣은 값을 반환하는 메소드
+     * @param code 프론트로부터 넘겨받은 인가코드
+     * @param provider 소셜에 알맞는 Provider (redirect_uri, token_uri 등..)
+     * @return 소셜 서버로 토큰 발급 요청 시 Body에 넣은 값을 담은 객체
+     */
     private MultiValueMap<String, String> getParams(String code, ClientRegistration provider) {
         return MultiValueMapConverter.convert(
                 new ObjectMapper(),
@@ -199,6 +217,12 @@ public class OAuth2Service {
         );
     }
 
+    /**
+     * 소셜 서버로 부터 발급받은 토큰 값을 통해 해당 유저 속성을 반환하는 메소드
+     * @param provider 소셜에 알맞는 Provider (redirect_uri, token_uri 등..)
+     * @param kakaoTokenResponse 소셜 서버로 부터 발급받은 토큰 값들이 저장된 DTO
+     * @return 소셜 서버로 부터 발급받은 토큰의 유저 속성
+     */
     private Map<String, Object> getUserAttributes(ClientRegistration provider, KakaoTokenResponse kakaoTokenResponse) {
         return WebClient.create()
                 .get()
@@ -207,15 +231,5 @@ public class OAuth2Service {
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                 .block();
-    }
-
-    private Authentication getAuthentication(String email, String password) {
-        // 1. 아이디/비밀번호를 기반으로 Authentication 객체 생성
-        // 이 때, authentication 는 인증 여부를 확인하는 authenticated 값이 false
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(email, password);
-
-        // 2. 실제 검증(사용자 비밀번호 체크) 이 실행되는 부분
-        // authenticate 메소드가 실행 될 때 MemberService 에서 loadUserByUsername 메소드가 실행된다.
-        return authenticationManagerBuilder.getObject().authenticate(authenticationToken);
     }
 }
