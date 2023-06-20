@@ -108,10 +108,12 @@ public class OAuth2Service {
         log.info("oAuth2Token = {}", oAuth2Token);
 
         // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
-        oAuth2TokenRepository.save(oAuth2Token);
+        OAuth2Token save = oAuth2TokenRepository.save(oAuth2Token);
+        log.info("save = {}", save);
 
         // 만든 이메일, 비밀번호와 소셜 서버로부터 받아온 만료 기간을 통해 토큰 생성
         String accessToken = jwtTokenProvider.createAccessToken(email, password);
+        log.info("accessToken = {}", accessToken);
 
         // Refresh 토큰 저장소에 만든 Refresh 토큰 저장
         RefreshToken refreshToken = refreshTokenService.saveRefreshToken(email);
