@@ -8,7 +8,7 @@ import nerds.studiousTestProject.user.auth.oauth.account.OAuth2AccountRepository
 import nerds.studiousTestProject.user.auth.oauth.userinfo.OAuth2UserInfo;
 import nerds.studiousTestProject.user.auth.oauth.userinfo.OAuth2UserInfoFactory;
 import nerds.studiousTestProject.user.dto.general.MemberType;
-import nerds.studiousTestProject.user.dto.oauth.token.TokenInfo;
+import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.dto.oauth.token.kakao.KakaoTokenRequest;
 import nerds.studiousTestProject.user.dto.oauth.token.kakao.KakaoTokenResponse;
 import nerds.studiousTestProject.user.entity.Member;
@@ -48,8 +48,9 @@ public class OAuth2Service {
     private final RefreshTokenService refreshTokenService;
 
     @Transactional
-    public TokenInfo authorize(String providerName, String code) {
+    public JwtTokenResponse authorize(String providerName, String code) {
         ClientRegistration provider = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
+        log.info("provider = {}", provider.toString());
         KakaoTokenResponse kakaoTokenResponse = getToken(code, provider);
         Member member = getMemberProfile(providerName, kakaoTokenResponse, provider);
 
@@ -58,7 +59,7 @@ public class OAuth2Service {
 
         refreshTokenService.saveRefreshToken(member.getEmail());
 
-        return TokenInfo.builder()
+        return JwtTokenResponse.builder()
                 .grantType(kakaoTokenResponse.getToken_type())
                 .accessToken(accessToken)
                 .build();
