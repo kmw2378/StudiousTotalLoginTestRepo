@@ -1,6 +1,5 @@
 package nerds.studiousTestProject.user.entity;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
@@ -8,15 +7,12 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import nerds.studiousTestProject.user.dto.general.MemberSignUpResponse;
 import nerds.studiousTestProject.user.dto.general.MemberType;
-import nerds.studiousTestProject.user.entity.oauth.OAuth2Token;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -45,10 +41,6 @@ public class Member implements UserDetails {
 
     @Enumerated(value = EnumType.STRING)
     private MemberType type;
-
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @JoinColumn(name = "OAUTH2_TOKEN")
-    private OAuth2Token oAuth2Token;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

@@ -2,12 +2,10 @@ package nerds.studiousTestProject.user.entity.oauth;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import nerds.studiousTestProject.user.entity.Member;
 
 import java.time.LocalDateTime;
 
@@ -22,7 +20,4 @@ public class OAuth2Token {
     private String accessToken;
     private String refreshToken;
     private LocalDateTime expiredAt;
-
-    @OneToOne(mappedBy = "oAuth2Token")
-    private Member member;
 }
