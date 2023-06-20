@@ -19,6 +19,7 @@ import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -40,13 +41,16 @@ import java.util.stream.Collectors;
 public class JwtTokenProvider {
     private final Key key;
     private final LogoutAccessTokenService logoutAccessTokenService;
+    private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
     @Autowired
     public JwtTokenProvider(@Value("${spring.jwt.secret}") String secretKey,
-                            LogoutAccessTokenService logoutAccessTokenService) {
+                            LogoutAccessTokenService logoutAccessTokenService,
+                            AuthenticationManagerBuilder authenticationManagerBuilder) {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.logoutAccessTokenService = logoutAccessTokenService;
+        this.authenticationManagerBuilder = authenticationManagerBuilder;
     }
     public String createRefreshToken() {
         return Jwts.builder()
@@ -55,8 +59,25 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    public String createAccessToken(String email, String password) {
+        // 1. 검증 객체 생성
+        Authentication authentication = getAuthentication(email, password);
+
+        // 2. 검증 객체에서 권한 가져오기
+        String authorities = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(","));
+
+        return Jwts.builder()
+                .setSubject(authentication.getName())
+                .claim(JwtTokenUtil.CLAIMS_AUTH, authorities)
+                .setExpiration(getAccessTokenExpiresIn())
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     public String createAccessToken(Authentication authentication) {
-        // 권한 가져오기
+        // 검증 객체에서 권한 가져오기
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
@@ -178,5 +199,23 @@ public class JwtTokenProvider {
 
     private boolean checkLogout(String token) {
         return logoutAccessTokenService.existsLogoutAccessTokenById(token);
+    }
+
+    /**
+     * 이메일, 비밀번호를 통해 Authentication 객체를 생성하는 메소드
+     * 이 값은 토큰 생성 시 사용된다.
+     * 이 때, CustomerUserDetailsService 의 loadUserByUsername 를 통해 검증이 실행되며 검증 실패의 경우 예외 발생
+     * @param email 사용자 email
+     * @param password 사용자 password
+     * @return 사용자 정보를 통해 만든 Authentication 객체
+     */
+    private Authentication getAuthentication(String email, String password) {
+        // 1. 아이디/비밀번호를 기반으로 Authentication 객체 생성
+        // 이 때, authentication 는 인증 여부를 확인하는 authenticated 값이 false
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(email, password);
+
+        // 2. 실제 검증(사용자 비밀번호 체크) 이 실행되는 부분
+        // authenticate 메소드가 실행 될 때 MemberService 에서 loadUserByUsername 메소드가 실행된다.
+        return authenticationManagerBuilder.getObject().authenticate(authenticationToken);
     }
 }
