@@ -18,6 +18,7 @@ import nerds.studiousTestProject.user.util.DateConverter;
 import nerds.studiousTestProject.user.util.JwtTokenProvider;
 import nerds.studiousTestProject.user.util.MultiValueMapConverter;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -30,7 +31,6 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -70,10 +70,7 @@ public class OAuth2Service {
             kakaoTokenResponse = WebClient.create()
                     .post()
                     .uri(provider.getProviderDetails().getTokenUri())
-                    .headers(header -> {
-                        header.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-                        header.setAcceptCharset(Collections.singletonList(StandardCharsets.UTF_8));
-                    })
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
                     .bodyValue(tokenRequest(code, provider))
                     .retrieve()
                     .bodyToMono(KakaoTokenResponse.class)
@@ -92,7 +89,7 @@ public class OAuth2Service {
                 new ObjectMapper(),
                 KakaoTokenRequest.builder()
                         .code(code)
-                        .grant_type(provider.getAuthorizationGrantType().getValue())
+                        .grant_type("authorization_code")
                         .redirect_uri(provider.getRedirectUri())
                         .client_id(provider.getClientId())
                         .build()
