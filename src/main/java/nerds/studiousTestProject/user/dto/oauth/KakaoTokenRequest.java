@@ -1,4 +1,4 @@
-package nerds.studiousTestProject.user.dto.oauth.token.kakao;
+package nerds.studiousTestProject.user.dto.oauth;
 
 import lombok.Builder;
 import lombok.Data;
