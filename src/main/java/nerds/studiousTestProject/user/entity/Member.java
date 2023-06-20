@@ -1,16 +1,20 @@
 package nerds.studiousTestProject.user.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import nerds.studiousTestProject.user.dto.general.MemberSignUpResponse;
 import nerds.studiousTestProject.user.dto.general.MemberType;
+import nerds.studiousTestProject.user.entity.oauth.OAuth2Token;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -26,7 +30,6 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @Entity
 public class Member implements UserDetails {
-
     @Id
     @Column(updatable = false, unique = true, nullable = false)
     private String email;
@@ -39,6 +42,10 @@ public class Member implements UserDetails {
     private List<String> roles = new ArrayList<>();
 
     private MemberType type;
+
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JoinColumn(name = "OAUTH2_TOKEN")
+    private OAuth2Token oAuth2Token;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -82,14 +89,6 @@ public class Member implements UserDetails {
                 .email(email)
                 .password(password)
                 .roles(roles)
-                .build();
-    }
-
-    public static Member signUpResponseToEntity(MemberSignUpResponse memberSignUpResponse) {
-        return Member.builder()
-                .email(memberSignUpResponse.getEmail())
-                .password(memberSignUpResponse.getPassword())
-                .roles(memberSignUpResponse.getRoles())
                 .build();
     }
 }
