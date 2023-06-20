@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import nerds.studiousTestProject.user.auth.oauth.OAuth2Token;
-import nerds.studiousTestProject.user.auth.oauth.account.OAuth2Account;
-import nerds.studiousTestProject.user.auth.oauth.account.OAuth2AccountRepository;
 import nerds.studiousTestProject.user.auth.oauth.userinfo.OAuth2UserInfo;
 import nerds.studiousTestProject.user.auth.oauth.userinfo.OAuth2UserInfoFactory;
 import nerds.studiousTestProject.user.dto.general.MemberType;
@@ -13,6 +11,8 @@ import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.dto.oauth.token.kakao.KakaoTokenRequest;
 import nerds.studiousTestProject.user.dto.oauth.token.kakao.KakaoTokenResponse;
 import nerds.studiousTestProject.user.entity.Member;
+import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
+import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.repository.member.MemberRepository;
 import nerds.studiousTestProject.user.service.token.RefreshTokenService;
 import nerds.studiousTestProject.user.util.DateConverter;
@@ -24,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.stereotype.Service;
@@ -33,8 +34,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -42,10 +43,10 @@ import java.util.UUID;
 @Slf4j
 @Transactional(readOnly = true)
 public class OAuth2Service {
-    private final OAuth2AccountRepository oAuth2AccountRepository;
     private final InMemoryClientRegistrationRepository inMemoryClientRegistrationRepository;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final MemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
 
@@ -61,13 +62,35 @@ public class OAuth2Service {
 
         // 소셜 엑세스 토큰을 통해 사용자 정보 받아오기
         Map<String, Object> attributes = getUserAttributes(provider, kakaoTokenResponse);
+        log.info("attributes = {}", attributes);
 
         // 팩토리 클래스를 통해 구글, 네이버, 카카오 중 알맞는 소셜 사용자 정보를 가져온다.
         OAuth2UserInfo oAuth2UserInfo = getOAuth2UserInfo(providerName, attributes);
+        log.info("userInfo = {}", oAuth2UserInfo.toString());
 
         // 유저 정보를 통해 이메일, 비밀번호 생성 (이 때, 비밀번호는 UUID 를 통해 랜덤으로 생성)
         String email = oAuth2UserInfo.getEmail();
         String password = UUID.randomUUID().toString();
+
+        // 토큰을 만들기 전 Repository 에 있는지 여부를 확인 후 이를 완료하고 진행하자.
+        // 별도로 DB를 두지 말고 Member 로 통합해도 괜찮을 것 같음 (컬럼만 추가하자)
+        if (memberRepository.existsByEmail(email)) {
+            throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
+        }
+
+        String encode = passwordEncoder.encode(password);
+        List<String> roles = Collections.singletonList("USER");
+        if (memberRepository.existsByEmail(email)) {
+            memberRepository.save(
+                    Member.builder()
+                    .email(email)
+                    .password(encode)
+                    .roles(roles)
+                    .type(MemberType.OAUTH)
+                    .build()
+            );
+        }
+
         Authentication authentication = getAuthentication(email, password); // 이메일, 비밀번호를 통해 인증 정보 생성
 
         // 만든 이메일, 비밀번호와 소셜 서버로부터 받아온 만료 기간을 통해 토큰 생성
@@ -81,7 +104,8 @@ public class OAuth2Service {
 
         // 가져온 소셜 사용자 정보가 기존 DB에 있는지 조회
         // 만약 없다면 새롭게 만들고, 있다면 연관관계 생성
-        saveMemberProfile(oAuth2Token, oAuth2UserInfo);
+        // 이 부분을 추가로 수정해야될 것 같음
+//        saveMemberProfile(oAuth2Token, oAuth2UserInfo);
 
         // Refresh 토큰 저장소에 만든 Refresh 토큰 저장
         refreshTokenService.saveRefreshTokenFromOAuth2(oAuth2Token, oAuth2UserInfo);
@@ -134,63 +158,6 @@ public class OAuth2Service {
                         .client_id(provider.getClientId())
                         .build()
         );
-    }
-
-    private void saveMemberProfile(OAuth2Token oAuth2Token, OAuth2UserInfo oAuth2UserInfo) {
-        String provide = oAuth2UserInfo.getProvider();
-        String id = oAuth2UserInfo.getId();
-        String email = oAuth2UserInfo.getEmail();
-//        String name = oAuth2UserInfo.getName();
-
-        Optional<OAuth2Account> oAuth2AccountOptional = oAuth2AccountRepository.findByProviderAndProviderId(provide, id);
-        Member member;
-        // 가입된 계정이 존재할때
-        if (oAuth2AccountOptional.isPresent()) {
-            OAuth2Account oAuth2Account = oAuth2AccountOptional.get();
-            member = oAuth2Account.getMember();
-            // 토큰 업데이트
-            oAuth2Account.updateToken(
-                    oAuth2Token.getToken(),
-                    oAuth2Token.getRefreshToken(),
-                    oAuth2Token.getExpiredAt());
-        }
-        // 가입된 계정이 존재하지 않을때
-        else {
-            // DB에 저장할 소셜 계정 정보 생성
-            OAuth2Account newAccount = OAuth2Account.builder()
-                    .provider(oAuth2UserInfo.getProvider())
-                    .providerId(oAuth2UserInfo.getId())
-                    .token(oAuth2Token.getToken())
-                    .refreshToken(oAuth2Token.getRefreshToken())
-                    .tokenExpiredAt(oAuth2Token.getExpiredAt())
-                    .build();
-            oAuth2AccountRepository.save(newAccount);
-
-            // 이메일 정보가 있을때
-            if (email != null) {
-                // 같은 이메일을 사용하는 계정이 존재하는지 확인 후 있다면 소셜 계정과 연결시키고 없다면 새로 생성한다
-                member = memberRepository.findByEmail(email)
-                        .orElse(Member.builder()
-                                .email(email)
-                                .roles(Collections.singletonList("USER"))
-                                .type(MemberType.OAUTH)
-                                .build());
-            }
-            // 이메일 정보가 없을때
-            else {
-                member = Member.builder()
-                        .roles(Collections.singletonList("USER"))
-                        .type(MemberType.OAUTH)
-                        .build();
-            }
-
-            // 새로 생성된 유저이면 db에 저장
-            if (member.getEmail() == null)
-                memberRepository.save(member);
-
-            // 연관관계 설정
-            member.linkSocial(newAccount);
-        }
     }
 
     private Map<String, Object> getUserAttributes(ClientRegistration provider, KakaoTokenResponse kakaoTokenResponse) {
