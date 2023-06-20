@@ -82,13 +82,13 @@ public class MemberService {
     }
 
     public void logout(String accessToken) {
-        String email = jwtTokenProvider.parseToken(jwtTokenProvider.resolveToken(accessToken));
-        accessToken = jwtTokenProvider.resolveToken(accessToken);
+        String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
+        String email = jwtTokenProvider.parseToken(resolvedAccessToken);
 
-        Long remainTime = jwtTokenProvider.getRemainTime(accessToken);
+        Long remainTime = jwtTokenProvider.getRemainTime(resolvedAccessToken);
         refreshTokenService.deleteRefreshTokenByEmail(email);
 
-        logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(email, accessToken, remainTime));
+        logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(email, resolvedAccessToken, remainTime));
     }
 
     /**
