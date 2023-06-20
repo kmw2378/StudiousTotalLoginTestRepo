@@ -5,6 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface OAuth2TokenRepository extends JpaRepository<OAuth2Token, Long> {
+public interface OAuth2TokenRepository extends JpaRepository<OAuth2Token, String> {
     Optional<OAuth2Token> findByEmail(String email);
 }
