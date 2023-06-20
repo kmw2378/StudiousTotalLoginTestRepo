@@ -170,8 +170,8 @@ public class JwtTokenProvider {
         response.addCookie(cookie);
     }
 
-    public Long getRemainTime(String refreshToken) {
-        Date expiration = parseClaims(refreshToken).getExpiration();
+    public Long getRemainTime(String token) {
+        Date expiration = parseClaims(token).getExpiration();
         Date now = new Date();
         return expiration.getTime() - now.getTime();
     }
