@@ -4,12 +4,12 @@ import java.util.Map;
 
 public class OAuth2UserInfoFactory {
 
-    public static OAuth2UserInfo getOAuth2UserInfo(String providerName, Map<String, Object> attributes) {
-        return switch (providerName.toLowerCase()) {
+    public static OAuth2UserInfo getOAuth2UserInfo(String registrationId, Map<String, Object> attributes) {
+        return switch (registrationId.toLowerCase()) {
             case "google" -> new GoogleUserInfo(attributes);
             case "naver" -> new NaverUserInfo(attributes);
             case "kakao" -> new KakaoUserInfo(attributes);
-            default -> throw new IllegalArgumentException(providerName.toUpperCase() + " 로그인은 지원하지 않습니다.");
+            default -> throw new IllegalArgumentException(registrationId.toUpperCase() + " 로그인은 지원하지 않습니다.");
         };
     }
 }
