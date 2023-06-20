@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class OAuth2Controller {
     private final OAuth2Service oAuth2Service;
 
+    // 추후 팩토리 클래스를 통해 알맞는 소셜 서비스를 사용하도록 설정 (현재는 그냥 카카오만)
     @GetMapping("/authorize/{provider}")
     public JwtTokenResponse authorize(@PathVariable String provider, @RequestParam String code) {
         log.info("code = {}", code);
