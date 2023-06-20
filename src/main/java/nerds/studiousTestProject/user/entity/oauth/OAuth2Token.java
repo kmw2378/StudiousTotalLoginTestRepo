@@ -22,9 +22,6 @@ import java.time.LocalDateTime;
 @Entity
 public class OAuth2Token {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     private String email;
     private String accessToken;
     private String refreshToken;
