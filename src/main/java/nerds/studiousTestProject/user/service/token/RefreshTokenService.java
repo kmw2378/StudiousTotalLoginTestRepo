@@ -1,8 +1,6 @@
 package nerds.studiousTestProject.user.service.token;
 
 import lombok.RequiredArgsConstructor;
-import nerds.studiousTestProject.user.auth.oauth.OAuth2Token;
-import nerds.studiousTestProject.user.auth.oauth.userinfo.OAuth2UserInfo;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
 import nerds.studiousTestProject.user.exception.model.TokenNotFoundException;
@@ -24,16 +22,6 @@ public class RefreshTokenService {
                         email,
                         jwtTokenProvider.createRefreshToken(),
                         DateConverter.toLocalDateTime(JwtTokenUtil.REFRESH_TOKEN_EXPIRE_TIME)
-                )
-        );
-    }
-
-    public RefreshToken saveRefreshTokenFromOAuth2(OAuth2Token oAuth2Token, OAuth2UserInfo oAuth2UserInfo) {
-        return refreshTokenRepository.save(
-                RefreshToken.from(
-                        oAuth2UserInfo.getEmail(),
-                        oAuth2Token.getRefreshToken(),
-                        oAuth2Token.getExpiredAt()
                 )
         );
     }
