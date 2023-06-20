@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 public class RefreshToken {
 
     @Id
-    private String id;
+    private String email;
 
     @Column(name = "refresh_token", unique = true)
     private String refreshToken;
@@ -28,7 +28,7 @@ public class RefreshToken {
 
     public static RefreshToken from(String email, String refreshToken, LocalDateTime expirationTime) {
         return RefreshToken.builder()
-                .id(email)
+                .email(email)
                 .refreshToken(refreshToken)
                 .expiration(expirationTime)
                 .build();
