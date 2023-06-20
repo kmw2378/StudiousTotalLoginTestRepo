@@ -15,7 +15,7 @@ import org.springframework.data.redis.core.TimeToLive;
 @AllArgsConstructor
 public class LogoutAccessToken {
     @Id
-    private String id;
+    private String token;
     private String email;
 
     @TimeToLive
@@ -23,7 +23,7 @@ public class LogoutAccessToken {
 
     public static LogoutAccessToken from(String email, String accessToken, Long expirationTime) {
         return LogoutAccessToken.builder()
-                .id(accessToken)
+                .token(accessToken)
                 .email(email)
                 .expiration(expirationTime / 1000)
                 .build();
