@@ -39,7 +39,7 @@ public class SecurityConfig {
                 .requestMatchers("/members/test").hasRole("USER")
                 .requestMatchers("/oauth/authorize/**").permitAll()
 //                .requestMatchers("/oauth/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
-                .anyRequest().authenticated()
+션                .anyRequest().permitAll()
                 .and()
                 .cors()
                 .and()
