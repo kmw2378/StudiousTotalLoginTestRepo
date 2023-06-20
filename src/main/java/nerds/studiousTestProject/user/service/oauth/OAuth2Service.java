@@ -102,10 +102,10 @@ public class OAuth2Service {
         // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
         oAuth2TokenRepository.save(
                 OAuth2Token.builder()
+                .email(email)
                 .accessToken(kakaoTokenResponse.getAccess_token())
                 .refreshToken(kakaoTokenResponse.getRefresh_token())
                 .expiredAt(DateConverter.toLocalDateTime(kakaoTokenResponse.getExpires_in()))
-                .member(member)
                 .build()
         );
 
