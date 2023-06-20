@@ -36,7 +36,6 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final RefreshTokenService refreshTokenService;
     private final LogoutAccessTokenService logoutAccessTokenService;
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
 
@@ -67,17 +66,14 @@ public class MemberService {
 
         Member member = authenticate(email, password);
 
-        // 1. 검증 객체 생성
-        Authentication authentication = getAuthentication(email, password);
-
-        // 2. 토큰 생성
-        String accessToken = jwtTokenProvider.createAccessToken(authentication);
+        // 1. 토큰 생성
+        String accessToken = jwtTokenProvider.createAccessToken(email, password);
         RefreshToken refreshToken = refreshTokenService.saveRefreshToken(member.getEmail());
 
-        // 3. 쿠키에 Refresh 토큰 등록
+        // 2. 쿠키에 Refresh 토큰 등록
         jwtTokenProvider.setRefreshTokenAtCookie(refreshToken);
 
-        // 4. 생성한 토큰을 DTO에 담아 반환
+        // 3. 생성한 토큰을 DTO에 담아 반환
         return JwtTokenResponse.from(accessToken);
     }
 
@@ -138,16 +134,6 @@ public class MemberService {
         }
 
         return member;
-    }
-
-    private Authentication getAuthentication(String email, String password) {
-        // 1. 아이디/비밀번호를 기반으로 Authentication 객체 생성
-        // 이 때, authentication 는 인증 여부를 확인하는 authenticated 값이 false
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(email, password);
-
-        // 2. 실제 검증(사용자 비밀번호 체크) 이 실행되는 부분
-        // authenticate 메소드가 실행 될 때 MemberService 에서 loadUserByUsername 메소드가 실행된다.
-        return authenticationManagerBuilder.getObject().authenticate(authenticationToken);
     }
 
     private JwtTokenResponse reissueTokens(String refreshToken, Authentication authentication) {
