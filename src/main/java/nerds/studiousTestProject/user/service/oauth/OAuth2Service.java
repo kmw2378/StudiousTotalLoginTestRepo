@@ -3,20 +3,26 @@ package nerds.studiousTestProject.user.service.oauth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import nerds.studiousTestProject.user.auth.oauth.OAuth2Token;
 import nerds.studiousTestProject.user.auth.oauth.userinfo.OAuth2UserInfo;
 import nerds.studiousTestProject.user.auth.oauth.userinfo.OAuth2UserInfoFactory;
 import nerds.studiousTestProject.user.dto.general.MemberType;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
-import nerds.studiousTestProject.user.dto.oauth.token.kakao.KakaoTokenRequest;
-import nerds.studiousTestProject.user.dto.oauth.token.kakao.KakaoTokenResponse;
+import nerds.studiousTestProject.user.dto.oauth.KakaoTokenRequest;
+import nerds.studiousTestProject.user.dto.oauth.KakaoTokenResponse;
+import nerds.studiousTestProject.user.dto.oauth.OAuth2LogoutResponse;
 import nerds.studiousTestProject.user.entity.Member;
+import nerds.studiousTestProject.user.entity.oauth.OAuth2Token;
+import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
+import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
 import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.repository.member.MemberRepository;
+import nerds.studiousTestProject.user.repository.oauth.OAuth2TokenRepository;
+import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
 import nerds.studiousTestProject.user.service.token.RefreshTokenService;
 import nerds.studiousTestProject.user.util.DateConverter;
 import nerds.studiousTestProject.user.util.JwtTokenProvider;
+import nerds.studiousTestProject.user.util.JwtTokenUtil;
 import nerds.studiousTestProject.user.util.MultiValueMapConverter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -36,6 +42,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -43,12 +50,14 @@ import java.util.UUID;
 @Slf4j
 @Transactional(readOnly = true)
 public class OAuth2Service {
+    private final OAuth2TokenRepository oAuth2TokenRepository;
     private final InMemoryClientRegistrationRepository inMemoryClientRegistrationRepository;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
+    private final LogoutAccessTokenService logoutAccessTokenService;
+    private final RefreshTokenService refreshTokenService;
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RefreshTokenService refreshTokenService;
 
     @Transactional
     public JwtTokenResponse authorize(String providerName, String code) {
@@ -80,43 +89,72 @@ public class OAuth2Service {
 
         String encode = passwordEncoder.encode(password);
         List<String> roles = Collections.singletonList("USER");
+        Member member = Member.builder()
+                .email(email)
+                .password(encode)
+                .roles(roles)
+                .type(MemberType.OAUTH)
+                .build();
         if (memberRepository.existsByEmail(email)) {
-            memberRepository.save(
-                    Member.builder()
-                    .email(email)
-                    .password(encode)
-                    .roles(roles)
-                    .type(MemberType.OAUTH)
-                    .build()
-            );
+            memberRepository.save(member);
         }
+
+        // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
+        oAuth2TokenRepository.save(
+                OAuth2Token.builder()
+                .accessToken(kakaoTokenResponse.getAccess_token())
+                .refreshToken(kakaoTokenResponse.getRefresh_token())
+                .expiredAt(DateConverter.toLocalDateTime(kakaoTokenResponse.getExpires_in()))
+                .member(member)
+                .build()
+        );
 
         Authentication authentication = getAuthentication(email, password); // 이메일, 비밀번호를 통해 인증 정보 생성
 
         // 만든 이메일, 비밀번호와 소셜 서버로부터 받아온 만료 기간을 통해 토큰 생성
-        OAuth2Token oAuth2Token = OAuth2Token.builder()
-                .token(jwtTokenProvider.createAccessToken(authentication))
-                .refreshToken(jwtTokenProvider.createRefreshToken())
-                .expiredAt(DateConverter.toLocalDateTime(kakaoTokenResponse.getExpires_in()))
-                .build();
-
-//        Long refreshTokenExpiresIn = kakaoTokenResponse.getRefresh_token_expires_in(); 이거도 써야되는디,,,
-
-        // 가져온 소셜 사용자 정보가 기존 DB에 있는지 조회
-        // 만약 없다면 새롭게 만들고, 있다면 연관관계 생성
-        // 이 부분을 추가로 수정해야될 것 같음
-//        saveMemberProfile(oAuth2Token, oAuth2UserInfo);
+        String accessToken = jwtTokenProvider.createAccessToken(authentication);
 
         // Refresh 토큰 저장소에 만든 Refresh 토큰 저장
-        refreshTokenService.saveRefreshTokenFromOAuth2(oAuth2Token, oAuth2UserInfo);
+        RefreshToken refreshToken = refreshTokenService.saveRefreshToken(email);
+        jwtTokenProvider.setRefreshTokenAtCookie(refreshToken);
 
-        return JwtTokenResponse.builder()
-                .grantType(kakaoTokenResponse.getToken_type())
-                .accessToken(oAuth2Token.getToken())
-                .build();
+        return JwtTokenResponse.from(accessToken);
     }
 
-    private  OAuth2UserInfo getOAuth2UserInfo(String providerName, Map<String, Object> attributes) {
+    public void logout(String providerName, String accessToken) {
+        String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
+        String email = jwtTokenProvider.parseToken(resolvedAccessToken);
+
+        Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByEmail(email);
+        if (oAuth2TokenOptional.isEmpty()) {
+            throw new RuntimeException("올바르지 않은 소셜 정보 입니다.");
+        }
+        OAuth2Token oAuth2Token = oAuth2TokenOptional.get();
+
+        ClientRegistration provider = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
+        OAuth2LogoutResponse oAuth2LogoutResponse = null;
+        try {
+            oAuth2LogoutResponse = WebClient.create()
+                    .post()
+                    .uri("https://kapi.kakao.com/v1/user/logout")
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                    .header(HttpHeaders.AUTHORIZATION, JwtTokenUtil.TOKEN_PREFIX + " " + oAuth2Token.getAccessToken())
+                    .retrieve()
+                    .bodyToMono(OAuth2LogoutResponse.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            log.error("msg = {}", e.getMessage());
+            log.error("status = {}", e.getStatusCode());
+            log.error("body = {}", e.getResponseBodyAsString());
+        }
+
+        Long remainTime = jwtTokenProvider.getRemainTime(resolvedAccessToken);
+        refreshTokenService.deleteRefreshTokenByEmail(email);
+
+        logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(email, resolvedAccessToken, remainTime));
+    }
+
+    private OAuth2UserInfo getOAuth2UserInfo(String providerName, Map<String, Object> attributes) {
         OAuth2UserInfo oAuth2UserInfo;
         try {
            oAuth2UserInfo  = OAuth2UserInfoFactory.getOAuth2UserInfo(providerName, attributes);
@@ -125,6 +163,7 @@ public class OAuth2Service {
             log.error("attributes = {}", attributes);
             throw new RuntimeException("알맞는 소셜 서비스를 찾을 수 없습니다.");
         }
+
         return oAuth2UserInfo;
     }
 
