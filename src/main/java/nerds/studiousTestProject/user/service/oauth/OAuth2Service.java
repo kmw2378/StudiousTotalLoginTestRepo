@@ -74,7 +74,7 @@ public class OAuth2Service {
         log.info("userInfo = {}", oAuth2UserInfo.toString());
 
         // 유저 정보를 통해 이메일, 비밀번호 생성 (이 때, 비밀번호는 UUID 를 통해 랜덤으로 생성)
-        String email = oAuth2UserInfo.getEmail();
+        String email = oAuth2UserInfo.getEmail() == null ? UUID.randomUUID() + "@kakao.com" : oAuth2UserInfo.getEmail(); // 이 값이 null 이 되버림
         String password = UUID.randomUUID().toString();
 
         // 토큰을 만들기 전 Repository 에 있는지 여부를 확인 후 이를 완료하고 진행하자.
