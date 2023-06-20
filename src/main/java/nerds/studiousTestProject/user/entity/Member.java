@@ -4,6 +4,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -41,6 +43,7 @@ public class Member implements UserDetails {
     @Builder.Default
     private List<String> roles = new ArrayList<>();
 
+    @Enumerated(value = EnumType.STRING)
     private MemberType type;
 
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
