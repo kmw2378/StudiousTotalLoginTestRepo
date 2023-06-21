@@ -1,6 +1,7 @@
 package nerds.studiousTestProject.user.dto.oauth.userinfo;
 
 import java.util.Map;
+import java.util.UUID;
 
 public class GoogleUserInfo extends OAuth2UserInfo {
 
@@ -20,6 +21,6 @@ public class GoogleUserInfo extends OAuth2UserInfo {
 
     @Override
     public String getEmail() {
-        return (String) attributes.get("email");
+        return attributes.get("email") == null ? UUID.randomUUID() + "@google.com" : (String) attributes.get("email");
     }
 }

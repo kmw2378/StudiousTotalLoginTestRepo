@@ -1,6 +1,7 @@
 package nerds.studiousTestProject.user.dto.oauth.userinfo;
 
 import java.util.Map;
+import java.util.UUID;
 
 public class NaverUserInfo extends OAuth2UserInfo {
 
@@ -19,7 +20,7 @@ public class NaverUserInfo extends OAuth2UserInfo {
 
     @Override
     public String getEmail() {
-        return (String) parsingProperties().get("email");
+        return parsingProperties().get("email") == null ? UUID.randomUUID() + "@naver.com" : (String) parsingProperties().get("email");
     }
 
     private Map<String, Object> parsingProperties() {
