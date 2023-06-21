@@ -1,4 +1,4 @@
-package nerds.studiousTestProject.user.auth.oauth.userinfo;
+package nerds.studiousTestProject.user.dto.oauth.userinfo;
 
 import lombok.ToString;
 
@@ -11,7 +11,6 @@ public abstract class OAuth2UserInfo {
         this.attributes = attributes;
     }
     public abstract String getId();
-    public abstract String getProvider();
     public abstract String getName();
     public abstract String getEmail();
 }

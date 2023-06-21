@@ -1,21 +1,16 @@
-package nerds.studiousTestProject.user.auth.oauth.userinfo;
+package nerds.studiousTestProject.user.dto.oauth.userinfo;
 
 import java.util.Map;
 
-public class GoogleUserInfo extends OAuth2UserInfo {
+public class DefaultUserInfo extends OAuth2UserInfo {
 
-    public GoogleUserInfo(Map<String, Object> attributes) {
+    public DefaultUserInfo(Map<String, Object> attributes) {
         super(attributes);
     }
 
     @Override
     public String getId() {
         return (String) attributes.get("id");
-    }
-
-    @Override
-    public String getProvider() {
-        return "google";
     }
 
     @Override
