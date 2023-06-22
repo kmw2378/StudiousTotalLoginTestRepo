@@ -20,7 +20,7 @@ public class NaverUserInfo extends OAuth2UserInfo {
 
     @Override
     public String getEmail() {
-        return parsingProperties().get("email") == null ? UUID.randomUUID() + "@naver.com" : (String) parsingProperties().get("email");
+        return (String) parsingProperties().get("email");
     }
 
     private Map<String, Object> parsingProperties() {
