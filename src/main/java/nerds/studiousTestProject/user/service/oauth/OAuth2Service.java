@@ -16,6 +16,7 @@ import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.repository.member.MemberRepository;
 import nerds.studiousTestProject.user.repository.oauth.OAuth2TokenRepository;
+import nerds.studiousTestProject.user.service.member.MemberService;
 import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
 import nerds.studiousTestProject.user.service.token.RefreshTokenService;
 import nerds.studiousTestProject.user.util.DateConverter;
@@ -75,34 +76,10 @@ public class OAuth2Service {
         // 이메일이 안넘어오는 경우 (사용자가 동의 X) 는 UUID를 사용하여 이메일 생성 => 이러면 하나의 사용자에 대해 이메일이 여러 개 생성되므로,,, 필수 제공 정보(이름)을 가지고 고유 이메일 생성?
         String email = oAuth2UserInfo.getEmail();
         String password = UUID.randomUUID().toString();
+        Long providerId = Long.parseLong(oAuth2UserInfo.getProviderId());   // 유저 정보를 통해 providerId(소셜 유저 고유 id)를 가져온다.
 
         String encode = passwordEncoder.encode(password);   // 생성한 비밀번호를 인코딩
         List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
-
-        // Member 정보 생성
-        Member member = Member.builder()
-                .email(email)
-                .password(encode)
-                .roles(roles)
-                .type(MemberType.OAUTH)
-                .build();
-
-        // 기존 회원 정보에 없다면 저장
-        if (!memberRepository.existsByEmail(email)) {
-            memberRepository.save(member);
-        }
-
-        OAuth2Token oAuth2Token = OAuth2Token.builder()
-                .email(email)
-                .accessToken(oAuth2TokenResponse.getAccess_token())
-                .refreshToken(oAuth2TokenResponse.getRefresh_token())
-                .expiredAt(DateConverter.toLocalDateTime(oAuth2TokenResponse.getExpires_in()))
-                .build();
-        log.info("oAuth2Token = {}", oAuth2Token);
-
-        // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
-        OAuth2Token save = oAuth2TokenRepository.save(oAuth2Token);
-        log.info("save = {}", save);
 
         // 만든 이메일, 비밀번호와 소셜 서버로부터 받아온 만료 기간을 통해 토큰 생성
         String accessToken = jwtTokenProvider.createAccessToken(email, password);
@@ -111,6 +88,31 @@ public class OAuth2Service {
         // Refresh 토큰 저장소에 만든 Refresh 토큰 저장
         RefreshToken refreshToken = refreshTokenService.saveRefreshToken(email);
         jwtTokenProvider.setRefreshTokenAtCookie(refreshToken);
+
+        Optional<Member> memberOptional = memberRepository.findByProviderId(providerId);
+        if (memberOptional.isEmpty()) {
+            Member member = Member.builder()
+                    .providerId(providerId)
+                    .email(email)
+                    .password(encode)
+                    .roles(roles)
+                    .type(MemberType.OAUTH)
+                    .build();
+            log.info("member = {}", member);
+            memberRepository.save(member);
+        }
+
+        Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByProviderId(providerId); // providerId 로 Repo 에서 찾는다.
+        if (oAuth2TokenOptional.isEmpty()) {
+            // 없다면 OAuth2Token 생성
+            OAuth2Token oAuth2Token = OAuth2Token.builder()
+                    .accessToken(oAuth2TokenResponse.getAccess_token())
+                    .refreshToken(oAuth2TokenResponse.getRefresh_token())
+                    .expiredAt(DateConverter.toLocalDateTime(oAuth2TokenResponse.getExpires_in()))
+                    .build();
+            log.info("oAuth2Token = {}", oAuth2Token.toString());
+            oAuth2TokenRepository.save(oAuth2Token);    // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
+        }
 
         return JwtTokenResponse.from(accessToken);
     }
@@ -122,15 +124,23 @@ public class OAuth2Service {
             throw new RuntimeException("토큰 해결 중 오류 발생");
         }
 
+        // Long id = memberService.logout(accessToken) 에서 member id 값을 받아와서 진행하는 방식을 고려해보자.
+
         String email = jwtTokenProvider.parseToken(resolvedAccessToken);
         log.info("email = {}", email);
 
-        Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByEmail(email);
-        if (oAuth2TokenOptional.isEmpty()) {
-            throw new RuntimeException("올바르지 않은 소셜 정보 입니다.");
+        Optional<Member> optionalMember = memberRepository.findByEmail(email);  // 이 부분을 수정해야 함
+        if (optionalMember.isEmpty()) {
+            throw new RuntimeException("회원 저장소에 없는 토큰입니다.");
         }
-        OAuth2Token oAuth2Token = oAuth2TokenOptional.get();
 
+        Member member = optionalMember.get();
+        Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByProviderId(member.getProviderId());
+        if (oAuth2TokenOptional.isEmpty()) {
+            throw new RuntimeException("소셜 토큰 저장소에 없는 토큰입니다.");
+        }
+
+        OAuth2Token oAuth2Token = oAuth2TokenOptional.get();
         ClientRegistration clientRegistration = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
         log.info("clientRegistration = {}", clientRegistration);
         OAuth2LogoutResponse oAuth2LogoutResponse = null;
@@ -149,6 +159,7 @@ public class OAuth2Service {
             log.error("body = {}", e.getResponseBodyAsString());
         }
 
+        // 응답 객체의 id값을 통해 기존 회원도 로그아웃시키자! => 이미 Studious 엑세스 토큰이 있으므로 굳이 ?
         Long remainTime = jwtTokenProvider.getRemainTime(resolvedAccessToken);
         refreshTokenService.deleteRefreshTokenByEmail(email);
 
@@ -156,11 +167,11 @@ public class OAuth2Service {
     }
 
     /**
-     * 소셜 이름(구글, 카카오, 네이버 중 하나) 와 유저 속성을 통해 알맞는 OAuth2UserInfo 객체를 반환하는 메소드
+     * 소셜 이름(구글, 카카오, 네이버 중 하나) 와 유저 속성을 통해 알맞는 OAuth2User 객체를 반환하는 메소드
      * 팩토리 클래스 OAuth2UserInfoFactory 를 통해 소셜 이름에 알맞는 객체를 반환 (다형성 활용)
      * @param providerName 소셜 이름(구글, 카카오, 네이버 중 하나)
      * @param attributes 유저 속성
-     * @return 소셜 이름에 알맞는 OAuth2UserInfo 객체
+     * @return 소셜 이름에 알맞는 OAuth2User 객체
      */
     private OAuth2UserInfo getOAuth2UserInfo(String providerName, Map<String, Object> attributes) {
         OAuth2UserInfo oAuth2UserInfo;
