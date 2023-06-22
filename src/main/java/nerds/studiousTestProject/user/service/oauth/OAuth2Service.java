@@ -231,12 +231,7 @@ public class OAuth2Service {
     private Map<String, Object> getUserAttributes(ClientRegistration provider, OAuth2TokenResponse oAuth2TokenResponse) {
         return WebClient.create()
                 .get()
-                .uri(
-                        uriBuilder -> uriBuilder
-                                .path(provider.getProviderDetails().getUserInfoEndpoint().getUri())
-                                .queryParam("property_keys", "[\"kakao_account.profile\",\"kakao_account.name\",\"kakao_account.email\"]")
-                                .build()
-                )
+                .uri(provider.getProviderDetails().getUserInfoEndpoint().getUri())
                 .headers(header -> header.setBearerAuth(oAuth2TokenResponse.getAccess_token()))
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
