@@ -10,6 +10,7 @@ import nerds.studiousTestProject.user.dto.oauth.token.OAuth2TokenResponse;
 import nerds.studiousTestProject.user.dto.oauth.userinfo.OAuth2UserInfo;
 import nerds.studiousTestProject.user.dto.oauth.userinfo.OAuth2UserInfoFactory;
 import nerds.studiousTestProject.user.entity.oauth.OAuth2Token;
+import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
 import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.repository.oauth.OAuth2TokenRepository;
 import nerds.studiousTestProject.user.service.member.MemberService;
@@ -73,22 +74,32 @@ public class OAuth2Service {
         String email = oAuth2UserInfo.getEmail();
         String password = UUID.randomUUID().toString();
         List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
-        Long providerId = Long.parseLong(oAuth2UserInfo.getProviderId());   // 유저 정보를 통해 providerId(소셜 유저 고유 id)를 가져온다.
+        Long providerId = oAuth2UserInfo.getProviderId();   // 유저 정보를 통해 providerId(소셜 유저 고유 id)를 가져온다.
+
+        // providerId == null 인 경우 예외 터뜨리기
+        if (providerId == null) {
+            log.error("providerId = {}", oAuth2UserInfo.getProviderId());
+            throw new UserAuthException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
+        }
 
         try {
             memberService.register(email, password, roles, providerId);
             OAuth2Token oAuth2Token = OAuth2Token.builder()
+                    .providerId(providerId)
                     .accessToken(oAuth2TokenResponse.getAccess_token())
                     .refreshToken(oAuth2TokenResponse.getRefresh_token())
                     .expiredAt(DateConverter.toLocalDateTime(oAuth2TokenResponse.getExpires_in()))
                     .build();
             log.info("oAuth2Token = {}", oAuth2Token.toString());
             oAuth2TokenRepository.save(oAuth2Token);    // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
-        } catch (UserAuthException ignored) {}
+        } catch (UserAuthException e) {
+            log.error("msg = {}", e.getMessage());
+        }
 
         try {
             return memberService.login(email, password);
-        } catch (UserAuthException ignored) {
+        } catch (UserAuthException e) {
+            log.error("msg = {}", e.getMessage());
             throw new RuntimeException("소셜 로그인 실패");
         }
     }
