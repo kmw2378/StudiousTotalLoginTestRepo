@@ -6,13 +6,16 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import nerds.studiousTestProject.user.dto.general.MemberSignUpResponse;
 import nerds.studiousTestProject.user.dto.general.MemberType;
+import org.springframework.lang.Nullable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -26,9 +29,16 @@ import java.util.stream.Collectors;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString
 @Entity
 public class Member implements UserDetails {
     @Id
+    @GeneratedValue
+    private Long id;
+
+    @Nullable
+    private Long providerId;
+
     @Column(updatable = false, unique = true, nullable = false)
     private String email;
 
