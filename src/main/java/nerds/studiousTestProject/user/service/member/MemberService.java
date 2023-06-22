@@ -113,6 +113,7 @@ public class MemberService {
         }
 
         String currentEmail = authentication.getName();
+        log.info("currentEmail = {}", currentEmail);
         RefreshToken redisRefreshToken = refreshTokenService.findByEmail(currentEmail);
 
         if (redisRefreshToken == null || !refreshToken.equals(redisRefreshToken.getRefreshToken())) {
