@@ -123,7 +123,7 @@ public class JwtTokenProvider {
         }
 
         String email = authentication.getName();
-        RefreshToken newRedisToken = refreshTokenService.save(email);
+        RefreshToken newRedisToken = refreshTokenService.save(email, createRefreshToken());
         setRefreshTokenAtCookie(newRedisToken);
         return createAccessToken(authentication);
     }

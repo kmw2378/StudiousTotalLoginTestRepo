@@ -68,7 +68,7 @@ public class MemberService {
 
         // 1. 토큰 생성
         String accessToken = jwtTokenProvider.createAccessToken(email, password);
-        RefreshToken refreshToken = refreshTokenService.save(member.getEmail());
+        RefreshToken refreshToken = refreshTokenService.save(member.getEmail(), jwtTokenProvider.createRefreshToken());
 
         // 2. 쿠키에 Refresh 토큰 등록
         jwtTokenProvider.setRefreshTokenAtCookie(refreshToken);
