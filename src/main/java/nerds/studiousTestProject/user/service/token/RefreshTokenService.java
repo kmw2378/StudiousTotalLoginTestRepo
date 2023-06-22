@@ -25,11 +25,11 @@ public class RefreshTokenService {
     }
 
     public RefreshToken findByEmail(String email) {
-        return refreshTokenRepository.findByEmail(email)
+        return refreshTokenRepository.findById(email)
                 .orElseThrow(() -> new TokenNotFoundException(ExceptionMessage.TOKEN_NOT_FOUND));
     }
 
     public void deleteByEmail(String email) {
-        refreshTokenRepository.deleteByEmail(email);
+        refreshTokenRepository.deleteById(email);
     }
 }
