@@ -20,7 +20,7 @@ public class KakaoUserInfo extends OAuth2UserInfo {
 
     @Override
     public String getEmail() {
-        return parsingProperties().get("email") == null ? UUID.randomUUID() + "@kakao.com" : (String) parsingProperties().get("email");
+        return parsingProperties().get("email") == null ? getId() + "@kakao.com" : (String) parsingProperties().get("email");
     }
 
     private Map<String, Object> parsingProperties() {
