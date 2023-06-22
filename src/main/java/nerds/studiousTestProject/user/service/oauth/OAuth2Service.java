@@ -101,7 +101,7 @@ public class OAuth2Service {
      */
     public void logout(String providerName, String accessToken) {
         String email = memberService.logout(accessToken);
-//        Optional<Member> optionalMember = memberRepository.findByEmail(email);  // 이 부분을 수정해야 함
+//        Optional<Member> optionalMember = memberRepository.findById(email);  // 이 부분을 수정해야 함
         Long providerId = memberService.findProviderIdByEmail(email);   // 위 코드를 이와 같이 수정. 그래도 이상,,,
         Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByProviderId(providerId);
         if (oAuth2TokenOptional.isEmpty()) {
