@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.service.oauth.OAuth2Service;
 import org.springframework.http.HttpHeaders;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -21,10 +20,10 @@ public class OAuth2Controller {
     private final OAuth2Service oAuth2Service;
 
     // 추후 팩토리 클래스를 통해 알맞는 소셜 서비스를 사용하도록 설정 (현재는 그냥 카카오만)
-    @PostMapping("/authorize/{provider}")
+    @PostMapping("/login/{provider}")
     public JwtTokenResponse authorize(@PathVariable String provider, @RequestParam String code) {
         log.info("code = {}", code);
-        return oAuth2Service.authorize(provider, code);
+        return oAuth2Service.login(provider, code);
     }
 
     @PostMapping("/logout/{provider}")
