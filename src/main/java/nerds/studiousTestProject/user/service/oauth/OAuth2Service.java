@@ -117,7 +117,7 @@ public class OAuth2Service {
 
     public void logout(String providerName, String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
-가        if (resolvedAccessToken == null) {
+        if (resolvedAccessToken == null) {
             log.info("accessToken = {}", accessToken);
             throw new RuntimeException("토큰 해결 중 오류 발생");
         }
