@@ -2,9 +2,6 @@ package nerds.studiousTestProject.user.service.member;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import nerds.studiousTestProject.user.dto.general.MemberLoginRequest;
-import nerds.studiousTestProject.user.dto.general.MemberSignUpRequest;
-import nerds.studiousTestProject.user.dto.general.MemberSignUpResponse;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.entity.Member;
 import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
@@ -16,17 +13,14 @@ import nerds.studiousTestProject.user.repository.member.MemberRepository;
 import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
 import nerds.studiousTestProject.user.service.token.RefreshTokenService;
 import nerds.studiousTestProject.user.util.JwtTokenProvider;
-import nerds.studiousTestProject.user.util.JwtTokenUtil;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -39,36 +33,42 @@ public class MemberService {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
 
+    /**
+     * 사용자가 입력한 정보를 가지고 MemberRepository에 저장하는 메소드
+     * @param email 사용자 이메일
+     * @param password 사용자 비밀번호
+     * @param roles 사용자 권한 (이는 추후 회원가입 페이지로 구분할 예정, 일단은 값으로 넣어주자)
+     * @param providerId 소셜 로그인인 경우 소셜 서버 유저의 고유 id, 일반 회원가입인 경우는 null
+     */
     @Transactional
-    public MemberSignUpResponse register(MemberSignUpRequest signUpRequest) {
-        String email = signUpRequest.getEmail();
-        if (memberRepository.existsByEmail(email)) {
+    public void register(String email, String password, List<String> roles, Long providerId) {
+        if ((providerId != null && memberRepository.existsByProviderId(providerId)) || memberRepository.existsByEmail(email)) {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
 
-        String encode = passwordEncoder.encode(signUpRequest.getPassword());
-        List<String> roles = signUpRequest.getRoles();
+        String encode = passwordEncoder.encode(password);
         Member member = Member.builder()
                 .email(email)
                 .password(encode)
+                .providerId(providerId)
                 .roles(roles)
                 .build();
         memberRepository.save(member);
-
-        return member.toSignUpResponse();
     }
 
-    // 로그인을 하는 시점에 토큰이 생성된다
+    /**
+     * 로그인 하는 시점에 토큰을 생성해서 반환하는 메소드 (로그인을 하는 시점에 토큰이 생성된다)
+     * @param email 사용자 이메일
+     * @param password 사용자 비밀번호
+     * @return 발급한 토큰 정보
+     */
     @Transactional
-    public JwtTokenResponse login(MemberLoginRequest loginRequest) {
-        String email = loginRequest.getEmail();
-        String password = loginRequest.getPassword();
-
+    public JwtTokenResponse login(String email, String password) {
         Member member = authenticate(email, password);
 
         // 1. 토큰 생성
         String accessToken = jwtTokenProvider.createAccessToken(email, password);
-        RefreshToken refreshToken = refreshTokenService.saveRefreshToken(member.getEmail());
+        RefreshToken refreshToken = refreshTokenService.save(member.getEmail());
 
         // 2. 쿠키에 Refresh 토큰 등록
         jwtTokenProvider.setRefreshTokenAtCookie(refreshToken);
@@ -77,7 +77,12 @@ public class MemberService {
         return JwtTokenResponse.from(accessToken);
     }
 
-    public void logout(String accessToken) {
+    /**
+     * 현재 사용자의 토큰을 만료시고 블랙리스트에 저장하는 메소드
+     * @param accessToken 사용자의 accessToken
+     * @return 현재 사용자의 이메일
+     */
+    public String logout(String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
         if (resolvedAccessToken == null) {
             log.info("accessToken = {}", accessToken);
@@ -85,11 +90,14 @@ public class MemberService {
         }
 
         String email = jwtTokenProvider.parseToken(resolvedAccessToken);
+        log.info("email = {}", email);
 
         Long remainTime = jwtTokenProvider.getRemainTime(resolvedAccessToken);
-        refreshTokenService.deleteRefreshTokenByEmail(email);
+        refreshTokenService.deleteByEmail(email);
 
         logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(email, resolvedAccessToken, remainTime));
+
+        return email;
     }
 
     /**
@@ -105,11 +113,11 @@ public class MemberService {
         }
 
         String currentEmail = authentication.getName();
-        RefreshToken redisRefreshToken = refreshTokenService.findRefreshTokenByEmail(currentEmail);
+        RefreshToken redisRefreshToken = refreshTokenService.findByEmail(currentEmail);
 
         if (redisRefreshToken == null || !refreshToken.equals(redisRefreshToken.getRefreshToken())) {
             log.info("refreshToken = {}", refreshToken);
-            log.info("redisRefreshToken = {}", redisRefreshToken != null ? redisRefreshToken.getRefreshToken() : null);
+            log.info("redisRefreshToken = {}", redisRefreshToken != null ? redisRefreshToken.getRefreshToken() : "null");
             throw new TokenCheckFailException(ExceptionMessage.MISMATCH_TOKEN);
         }
 
@@ -119,7 +127,20 @@ public class MemberService {
 //        Member member = memberRepository.findByEmail(currentEmail).get();
 //        String password = passwordEncoder.encode(member.getPassword());
 
-        return reissueTokens(refreshToken, authentication);
+        return reissueToken(refreshToken, authentication);
+    }
+
+    /**
+     * OAuth2Service 에서 사용
+     * MemberRepository에서 email 값을 통해 providerId 찾아 반환하는 메소드
+     * @param email 회원 이메일
+     * @return 해당 email을 가진 Member의 providerId
+     */
+    public Long findProviderIdByEmail(String email) {
+        Optional<Member> memberOptional = memberRepository.findByEmail(email);
+        return memberOptional.orElseThrow(
+                () -> new UserAuthException(ExceptionMessage.USER_NOT_FOUND)
+        ).getProviderId();
     }
 
     /**
@@ -129,11 +150,12 @@ public class MemberService {
      * @return 알맞는 회원 정보
      */
     private Member authenticate(String email, String password) {
-        if (!memberRepository.existsByEmail(email)) {
+        Optional<Member> memberOptional = memberRepository.findByEmail(email);
+        if (memberOptional.isEmpty()) {
             throw new UserAuthException(ExceptionMessage.USER_NOT_FOUND);
         }
 
-        Member member = memberRepository.findByEmail(email).get();
+        Member member = memberOptional.get();
         if (!passwordEncoder.matches(password, member.getPassword())) {
             throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
         }
@@ -141,18 +163,14 @@ public class MemberService {
         return member;
     }
 
-    private JwtTokenResponse reissueTokens(String refreshToken, Authentication authentication) {
-        String accessToken = jwtTokenProvider.createAccessToken(authentication);
-        if (!lessThanReissueExpirationTimesLeft(refreshToken)) {
-            String email = authentication.getName();
-            RefreshToken newRedisToken = refreshTokenService.saveRefreshToken(email);
-            jwtTokenProvider.setRefreshTokenAtCookie(newRedisToken);
-        }
-
-        return JwtTokenResponse.from(accessToken);
-    }
-
-    private boolean lessThanReissueExpirationTimesLeft(String refreshToken) {
-        return jwtTokenProvider.getRemainTime(refreshToken) < JwtTokenUtil.REISSUE_EXPIRE_TIME;
+    /**
+     * RefreshToken의 유효기간을 확인 후, 토큰을 재발급해주는 메소드
+     * @param refreshToken 사용자의 RefreshToken
+     * @param authentication 사용자의 인증 정보
+     * @return 재발급된 accessToken
+     */
+    private JwtTokenResponse reissueToken(String refreshToken, Authentication authentication) {
+        String reissueAccessToken = jwtTokenProvider.reissueToken(refreshToken, authentication);
+        return JwtTokenResponse.from(reissueAccessToken);
     }
 }
