@@ -79,6 +79,11 @@ public class MemberService {
 
     public void logout(String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
+        if (resolvedAccessToken == null) {
+            log.info("accessToken = {}", accessToken);
+            throw new RuntimeException("토큰 해결 중 오류 발생");
+        }
+
         String email = jwtTokenProvider.parseToken(resolvedAccessToken);
 
         Long remainTime = jwtTokenProvider.getRemainTime(resolvedAccessToken);
