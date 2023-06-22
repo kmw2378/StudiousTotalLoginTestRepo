@@ -33,6 +33,7 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -74,7 +75,7 @@ public class OAuth2Service {
         log.info("userInfo = {}", oAuth2UserInfo.toString());
 
         // 유저 정보를 통해 이메일, 비밀번호 생성 (이 때, 비밀번호는 UUID 를 통해 랜덤으로 생성)
-        // 이메일이 안넘어오는 경우 (사용자가 동의 X) 는 UUID를 사용하여 이메일 생성
+        // 이메일이 안넘어오는 경우 (사용자가 동의 X) 는 UUID를 사용하여 이메일 생성 => 이러면 하나의 사용자에 대해 이메일이 여러 개 생성되므로,,, 필수 제공 정보(이름)을 가지고 고유 이메일 생성?
         String email = oAuth2UserInfo.getEmail();
         String password = UUID.randomUUID().toString();
 
@@ -84,7 +85,7 @@ public class OAuth2Service {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
 
-        String encode = passwordEncoder.encode(password);   // 생성한 비밀번호를 인코딩 (굳이 할 필요?)
+        String encode = passwordEncoder.encode(password);   // 생성한 비밀번호를 인코딩
         List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
 
         // Member 정보 생성
@@ -230,7 +231,12 @@ public class OAuth2Service {
     private Map<String, Object> getUserAttributes(ClientRegistration provider, OAuth2TokenResponse oAuth2TokenResponse) {
         return WebClient.create()
                 .get()
-                .uri(provider.getProviderDetails().getUserInfoEndpoint().getUri())
+                .uri(
+                        uriBuilder -> uriBuilder
+                                .path(provider.getProviderDetails().getUserInfoEndpoint().getUri())
+                                .queryParam("property_keys", "[\"kakao_account.profile\",\"kakao_account.name\",\"kakao_account.email\"]")
+                                .build()
+                )
                 .headers(header -> header.setBearerAuth(oAuth2TokenResponse.getAccess_token()))
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
