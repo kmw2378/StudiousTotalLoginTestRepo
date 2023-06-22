@@ -118,6 +118,7 @@ public class OAuth2Service {
     public void logout(String providerName, String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
         String email = jwtTokenProvider.parseToken(resolvedAccessToken);
+        log.info("email = {}", email);
 
         Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByEmail(email);
         if (oAuth2TokenOptional.isEmpty()) {
@@ -125,7 +126,8 @@ public class OAuth2Service {
         }
         OAuth2Token oAuth2Token = oAuth2TokenOptional.get();
 
-        ClientRegistration provider = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
+        ClientRegistration clientRegistration = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
+        log.info("clientRegistration = {}", clientRegistration);
         OAuth2LogoutResponse oAuth2LogoutResponse = null;
         try {
             oAuth2LogoutResponse = WebClient.create()
