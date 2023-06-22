@@ -3,19 +3,17 @@ package nerds.studiousTestProject.user.service.oauth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import nerds.studiousTestProject.user.dto.general.MemberType;
+import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
+import nerds.studiousTestProject.user.dto.oauth.token.OAuth2LogoutResponse;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2TokenRequest;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2TokenResponse;
 import nerds.studiousTestProject.user.dto.oauth.userinfo.OAuth2UserInfo;
 import nerds.studiousTestProject.user.dto.oauth.userinfo.OAuth2UserInfoFactory;
-import nerds.studiousTestProject.user.dto.general.MemberType;
-import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
-import nerds.studiousTestProject.user.dto.oauth.token.OAuth2LogoutResponse;
 import nerds.studiousTestProject.user.entity.Member;
 import nerds.studiousTestProject.user.entity.oauth.OAuth2Token;
 import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
-import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
-import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.repository.member.MemberRepository;
 import nerds.studiousTestProject.user.repository.oauth.OAuth2TokenRepository;
 import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
@@ -33,7 +31,6 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -78,12 +75,6 @@ public class OAuth2Service {
         // 이메일이 안넘어오는 경우 (사용자가 동의 X) 는 UUID를 사용하여 이메일 생성 => 이러면 하나의 사용자에 대해 이메일이 여러 개 생성되므로,,, 필수 제공 정보(이름)을 가지고 고유 이메일 생성?
         String email = oAuth2UserInfo.getEmail();
         String password = UUID.randomUUID().toString();
-
-        // 토큰을 만들기 전 Repository 에 있는지 여부를 확인 후 이를 완료하고 진행하자.
-        // 별도로 DB를 두지 말고 Member 로 통합해도 괜찮을 것 같음 (컬럼만 추가하자)
-        if (memberRepository.existsByEmail(email)) {
-            throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
-        }
 
         String encode = passwordEncoder.encode(password);   // 생성한 비밀번호를 인코딩
         List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
