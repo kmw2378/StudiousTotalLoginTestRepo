@@ -10,7 +10,7 @@ public class GoogleUserInfo extends OAuth2UserInfo {
     }
 
     @Override
-    public String getId() {
+    public String getProviderId() {
         return (String) attributes.get("id");
     }
 

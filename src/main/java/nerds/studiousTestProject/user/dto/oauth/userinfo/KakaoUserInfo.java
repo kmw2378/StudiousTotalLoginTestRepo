@@ -1,7 +1,6 @@
 package nerds.studiousTestProject.user.dto.oauth.userinfo;
 
 import java.util.Map;
-import java.util.UUID;
 
 public class KakaoUserInfo extends OAuth2UserInfo {
     public KakaoUserInfo(Map<String, Object> attributes) {
@@ -9,7 +8,7 @@ public class KakaoUserInfo extends OAuth2UserInfo {
 
     }
     @Override
-    public String getId() {
+    public String getProviderId() {
         return String.valueOf(attributes.get("id"));
     }
 
@@ -20,7 +19,7 @@ public class KakaoUserInfo extends OAuth2UserInfo {
 
     @Override
     public String getEmail() {
-        return parsingProperties().get("email") == null ? getId() + "@kakao.com" : (String) parsingProperties().get("email");
+        return parsingProperties().get("email") == null ? getProviderId() + "@kakao.com" : (String) parsingProperties().get("email");
     }
 
     private Map<String, Object> parsingProperties() {

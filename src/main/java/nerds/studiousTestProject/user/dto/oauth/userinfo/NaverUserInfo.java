@@ -9,7 +9,7 @@ public class NaverUserInfo extends OAuth2UserInfo {
         super(attributes);
     }
     @Override
-    public String getId() {
+    public String getProviderId() {
         return (String) parsingProperties().get("id");
     }
 
