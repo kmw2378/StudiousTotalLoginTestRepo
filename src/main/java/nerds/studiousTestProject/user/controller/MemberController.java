@@ -25,13 +25,13 @@ public class MemberController {
     private final MemberService memberService;
 
     @PostMapping("/signup")
-    public MemberSignUpResponse signUp(@RequestBody MemberSignUpRequest memberSignUpRequest) {
-        return memberService.register(memberSignUpRequest);
+    public void signUp(@RequestBody MemberSignUpRequest memberSignUpRequest) {
+        memberService.register(memberSignUpRequest.getEmail(), memberSignUpRequest.getPassword(), memberSignUpRequest.getRoles(), null);
     }
 
     @PostMapping("/login")
     public JwtTokenResponse login(@RequestBody MemberLoginRequest memberLoginRequest) {
-        return memberService.login(memberLoginRequest);
+        return memberService.login(memberLoginRequest.getEmail(), memberLoginRequest.getPassword());
     }
 
     @PostMapping("/logout")
