@@ -3,30 +3,22 @@ package nerds.studiousTestProject.user.service.oauth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import nerds.studiousTestProject.user.dto.general.MemberType;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2LogoutResponse;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2TokenRequest;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2TokenResponse;
 import nerds.studiousTestProject.user.dto.oauth.userinfo.OAuth2UserInfo;
 import nerds.studiousTestProject.user.dto.oauth.userinfo.OAuth2UserInfoFactory;
-import nerds.studiousTestProject.user.entity.Member;
 import nerds.studiousTestProject.user.entity.oauth.OAuth2Token;
-import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
-import nerds.studiousTestProject.user.entity.token.RefreshToken;
-import nerds.studiousTestProject.user.repository.member.MemberRepository;
+import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.repository.oauth.OAuth2TokenRepository;
 import nerds.studiousTestProject.user.service.member.MemberService;
-import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
-import nerds.studiousTestProject.user.service.token.RefreshTokenService;
 import nerds.studiousTestProject.user.util.DateConverter;
-import nerds.studiousTestProject.user.util.JwtTokenProvider;
 import nerds.studiousTestProject.user.util.JwtTokenUtil;
 import nerds.studiousTestProject.user.util.MultiValueMapConverter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.stereotype.Service;
@@ -48,14 +40,18 @@ import java.util.UUID;
 public class OAuth2Service {
     private final OAuth2TokenRepository oAuth2TokenRepository;
     private final InMemoryClientRegistrationRepository inMemoryClientRegistrationRepository;
-    private final LogoutAccessTokenService logoutAccessTokenService;
-    private final RefreshTokenService refreshTokenService;
-    private final MemberRepository memberRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final MemberService memberService;
 
+    /**
+     * 소셜 인가 코드를 통해 소셜 서버로부터 토큰을 발급받는다.
+     *  발급받은 토큰을 통해 로그인
+     *  (만약, 회원 정보가 없는 경우 신규 등록)
+     * @param providerName 소셜 이름. (google, naver, kakao) 중 하나
+     * @param code 소셜 인가 코드
+     * @return 소셜 서버로부터 발급받은 토큰을 통해 생성한 새로운 토큰
+     */
     @Transactional
-    public JwtTokenResponse authorize(String providerName, String code) {
+    public JwtTokenResponse login(String providerName, String code) {
         ClientRegistration provider = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
         log.info("provider = {}", provider.toString());
 
@@ -76,35 +72,11 @@ public class OAuth2Service {
         // 이메일이 안넘어오는 경우 (사용자가 동의 X) 는 UUID를 사용하여 이메일 생성 => 이러면 하나의 사용자에 대해 이메일이 여러 개 생성되므로,,, 필수 제공 정보(이름)을 가지고 고유 이메일 생성?
         String email = oAuth2UserInfo.getEmail();
         String password = UUID.randomUUID().toString();
+        List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
         Long providerId = Long.parseLong(oAuth2UserInfo.getProviderId());   // 유저 정보를 통해 providerId(소셜 유저 고유 id)를 가져온다.
 
-        String encode = passwordEncoder.encode(password);   // 생성한 비밀번호를 인코딩
-        List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
-
-        // 만든 이메일, 비밀번호와 소셜 서버로부터 받아온 만료 기간을 통해 토큰 생성
-        String accessToken = jwtTokenProvider.createAccessToken(email, password);
-        log.info("accessToken = {}", accessToken);
-
-        // Refresh 토큰 저장소에 만든 Refresh 토큰 저장
-        RefreshToken refreshToken = refreshTokenService.saveRefreshToken(email);
-        jwtTokenProvider.setRefreshTokenAtCookie(refreshToken);
-
-        Optional<Member> memberOptional = memberRepository.findByProviderId(providerId);
-        if (memberOptional.isEmpty()) {
-            Member member = Member.builder()
-                    .providerId(providerId)
-                    .email(email)
-                    .password(encode)
-                    .roles(roles)
-                    .type(MemberType.OAUTH)
-                    .build();
-            log.info("member = {}", member);
-            memberRepository.save(member);
-        }
-
-        Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByProviderId(providerId); // providerId 로 Repo 에서 찾는다.
-        if (oAuth2TokenOptional.isEmpty()) {
-            // 없다면 OAuth2Token 생성
+        try {
+            memberService.register(email, password, roles, providerId);
             OAuth2Token oAuth2Token = OAuth2Token.builder()
                     .accessToken(oAuth2TokenResponse.getAccess_token())
                     .refreshToken(oAuth2TokenResponse.getRefresh_token())
@@ -112,30 +84,26 @@ public class OAuth2Service {
                     .build();
             log.info("oAuth2Token = {}", oAuth2Token.toString());
             oAuth2TokenRepository.save(oAuth2Token);    // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
-        }
+        } catch (UserAuthException ignored) {}
 
-        return JwtTokenResponse.from(accessToken);
+        try {
+            return memberService.login(email, password);
+        } catch (UserAuthException ignored) {
+            throw new RuntimeException("소셜 로그인 실패");
+        }
     }
 
+    /**
+     * 현재 사용자의 토큰을 만료시고 블랙리스트에 저장한다.
+     *  그리고, 소셜 서버로부터 발급받은 토큰을 DB에서 삭제하는 메소드
+     * @param providerName 소셜 이름. (google, naver, kakao) 중 하나
+     * @param accessToken 사용자의 accessToken
+     */
     public void logout(String providerName, String accessToken) {
-        String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
-        if (resolvedAccessToken == null) {
-            log.info("accessToken = {}", accessToken);
-            throw new RuntimeException("토큰 해결 중 오류 발생");
-        }
-
-        // Long id = memberService.logout(accessToken) 에서 member id 값을 받아와서 진행하는 방식을 고려해보자.
-
-        String email = jwtTokenProvider.parseToken(resolvedAccessToken);
-        log.info("email = {}", email);
-
-        Optional<Member> optionalMember = memberRepository.findByEmail(email);  // 이 부분을 수정해야 함
-        if (optionalMember.isEmpty()) {
-            throw new RuntimeException("회원 저장소에 없는 토큰입니다.");
-        }
-
-        Member member = optionalMember.get();
-        Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByProviderId(member.getProviderId());
+        String email = memberService.logout(accessToken);
+//        Optional<Member> optionalMember = memberRepository.findByEmail(email);  // 이 부분을 수정해야 함
+        Long providerId = memberService.findProviderIdByEmail(email);   // 위 코드를 이와 같이 수정. 그래도 이상,,,
+        Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByProviderId(providerId);
         if (oAuth2TokenOptional.isEmpty()) {
             throw new RuntimeException("소셜 토큰 저장소에 없는 토큰입니다.");
         }
@@ -158,12 +126,6 @@ public class OAuth2Service {
             log.error("status = {}", e.getStatusCode());
             log.error("body = {}", e.getResponseBodyAsString());
         }
-
-        // 응답 객체의 id값을 통해 기존 회원도 로그아웃시키자! => 이미 Studious 엑세스 토큰이 있으므로 굳이 ?
-        Long remainTime = jwtTokenProvider.getRemainTime(resolvedAccessToken);
-        refreshTokenService.deleteRefreshTokenByEmail(email);
-
-        logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(email, resolvedAccessToken, remainTime));
     }
 
     /**
