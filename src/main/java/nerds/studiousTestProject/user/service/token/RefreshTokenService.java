@@ -10,13 +10,15 @@ import nerds.studiousTestProject.user.util.JwtTokenProvider;
 import nerds.studiousTestProject.user.util.JwtTokenUtil;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtTokenProvider jwtTokenProvider;
 
-    public RefreshToken saveRefreshToken(String email) {
+    public RefreshToken save(String email) {
         return refreshTokenRepository.save(
                 RefreshToken.from(
                         email,
@@ -26,12 +28,12 @@ public class RefreshTokenService {
         );
     }
 
-    public RefreshToken findRefreshTokenByEmail(String email) {
-        return refreshTokenRepository.findById(email)
+    public RefreshToken findByEmail(String email) {
+        return refreshTokenRepository.findByEmail(email)
                 .orElseThrow(() -> new TokenNotFoundException(ExceptionMessage.TOKEN_NOT_FOUND));
     }
 
-    public void deleteRefreshTokenByEmail(String email) {
-        refreshTokenRepository.deleteById(email);
+    public void deleteByEmail(String email) {
+        refreshTokenRepository.deleteByEmail(email);
     }
 }
