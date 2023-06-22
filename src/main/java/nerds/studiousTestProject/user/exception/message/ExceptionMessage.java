@@ -13,7 +13,8 @@ public enum ExceptionMessage {
     TOKEN_NOT_FOUND("토큰을 찾을 수 없습니다."),
     USER_NOT_FOUND("유저를 찾을 수 없습니다."),
     MISMATCH_TOKEN("토큰명이 일치하지 않습니다."),
-    NOT_SUPPORTED_JWT("JWT 토큰이 지원하지 않습니다.");
+    NOT_SUPPORTED_JWT("JWT 토큰이 지원하지 않습니다."),
+    NOT_EXPIRED_REFRESH_TOKEN("Refresh Token이 만료되지 않았습니다.");
 
     private final String message;
 
