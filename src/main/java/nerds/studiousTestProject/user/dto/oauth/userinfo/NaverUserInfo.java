@@ -10,7 +10,7 @@ public class NaverUserInfo extends OAuth2UserInfo {
     }
     @Override
     public Long getProviderId() {
-        return Long.valueOf((String) parsingProperties().get("id"));
+        return (long) parsingProperties().get("id").hashCode();
     }
 
     @Override
