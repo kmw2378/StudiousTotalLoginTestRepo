@@ -6,23 +6,19 @@ import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
 import nerds.studiousTestProject.user.exception.model.TokenNotFoundException;
 import nerds.studiousTestProject.user.repository.token.RefreshTokenRepository;
 import nerds.studiousTestProject.user.util.DateConverter;
-import nerds.studiousTestProject.user.util.JwtTokenProvider;
 import nerds.studiousTestProject.user.util.JwtTokenUtil;
 import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
-    private final JwtTokenProvider jwtTokenProvider;
 
-    public RefreshToken save(String email) {
+    public RefreshToken save(String email, String refreshToken) {
         return refreshTokenRepository.save(
                 RefreshToken.from(
                         email,
-                        jwtTokenProvider.createRefreshToken(),
+                        refreshToken,
                         DateConverter.toLocalDateTime(JwtTokenUtil.REFRESH_TOKEN_EXPIRE_TIME)
                 )
         );
