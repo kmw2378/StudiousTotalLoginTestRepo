@@ -15,7 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
 import nerds.studiousTestProject.user.exception.model.TokenCheckFailException;
+import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
+import nerds.studiousTestProject.user.service.token.RefreshTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -40,15 +42,18 @@ import java.util.stream.Collectors;
 @Component
 public class JwtTokenProvider {
     private final Key key;
+    private final RefreshTokenService refreshTokenService;
     private final LogoutAccessTokenService logoutAccessTokenService;
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
     @Autowired
     public JwtTokenProvider(@Value("${spring.jwt.secret}") String secretKey,
+                            RefreshTokenService refreshTokenService,
                             LogoutAccessTokenService logoutAccessTokenService,
                             AuthenticationManagerBuilder authenticationManagerBuilder) {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         this.key = Keys.hmacShaKeyFor(keyBytes);
+        this.refreshTokenService = refreshTokenService;
         this.logoutAccessTokenService = logoutAccessTokenService;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
     }
@@ -110,6 +115,21 @@ public class JwtTokenProvider {
         // UserDetails 객체를 만들어서 Authentication 리턴
         UserDetails principal = new User(claims.getSubject(), "", authorities);
         return new UsernamePasswordAuthenticationToken(principal, "", authorities);
+    }
+
+    public String reissueToken(String refreshToken, Authentication authentication) {
+        if (lessThanReissueExpirationTimesLeft(refreshToken)) {
+            throw new UserAuthException(ExceptionMessage.NOT_EXPIRED_REFRESH_TOKEN);
+        }
+
+        String email = authentication.getName();
+        RefreshToken newRedisToken = refreshTokenService.save(email);
+        setRefreshTokenAtCookie(newRedisToken);
+        return createAccessToken(authentication);
+    }
+
+    private boolean lessThanReissueExpirationTimesLeft(String refreshToken) {
+        return getRemainTime(refreshToken) < JwtTokenUtil.REISSUE_EXPIRE_TIME;
     }
 
     public String resolveToken(String token) {
