@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 @ToString
 public class OAuth2Token {
     @Id
-    private String email;
+    private Long providerId;
     private String accessToken;
     private String refreshToken;
     private LocalDateTime expiredAt;
