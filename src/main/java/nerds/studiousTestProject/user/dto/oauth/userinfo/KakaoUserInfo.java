@@ -8,8 +8,8 @@ public class KakaoUserInfo extends OAuth2UserInfo {
 
     }
     @Override
-    public String getProviderId() {
-        return String.valueOf(attributes.get("id"));
+    public Long getProviderId() {
+        return (long) attributes.get("id").hashCode();
     }
 
     @Override
