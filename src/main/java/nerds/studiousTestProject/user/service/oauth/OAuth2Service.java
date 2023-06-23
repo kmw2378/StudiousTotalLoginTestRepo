@@ -52,6 +52,7 @@ public class OAuth2Service {
      * @param code 소셜 인가 코드
      * @return 소셜 서버로부터 발급받은 토큰을 통해 생성한 새로운 토큰
      */
+    @Transactional
     public JwtTokenResponse login(String providerName, String code) {
         ClientRegistration provider = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
         log.info("provider = {}", provider.toString());
@@ -111,6 +112,7 @@ public class OAuth2Service {
      * @param providerName 소셜 이름. (google, naver, kakao) 중 하나
      * @param accessToken 사용자의 accessToken
      */
+    @Transactional
     public void logout(String providerName, String accessToken) {
         String email = memberService.logout(accessToken);
 //        Optional<Member> optionalMember = memberRepository.findById(email);  // 이 부분을 수정해야 함
