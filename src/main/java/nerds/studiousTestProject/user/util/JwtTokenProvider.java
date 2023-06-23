@@ -137,7 +137,8 @@ public class JwtTokenProvider {
             return token.substring(JwtTokenUtil.TOKEN_PREFIX.length() + 1);
         }
 
-        return null;
+        log.error("token = {}", token);
+        throw new RuntimeException("토큰 해결 중 오류 발생");
     }
 
     /**
