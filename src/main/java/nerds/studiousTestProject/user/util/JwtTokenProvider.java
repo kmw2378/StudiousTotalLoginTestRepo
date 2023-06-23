@@ -57,6 +57,7 @@ public class JwtTokenProvider {
         this.logoutAccessTokenService = logoutAccessTokenService;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
     }
+
     public String createRefreshToken() {
         return Jwts.builder()
                 .setExpiration(getRefreshTokenExpiresIn())
@@ -137,8 +138,7 @@ public class JwtTokenProvider {
             return token.substring(JwtTokenUtil.TOKEN_PREFIX.length() + 1);
         }
 
-        log.error("token = {}", token);
-        throw new RuntimeException("토큰 해결 중 오류 발생");
+        return null;
     }
 
     /**
