@@ -3,6 +3,7 @@ package nerds.studiousTestProject.user.service.oauth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import nerds.studiousTestProject.user.dto.general.MemberType;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2LogoutResponse;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2TokenRequest;
@@ -74,6 +75,7 @@ public class OAuth2Service {
         String email = oAuth2UserInfo.getEmail();
         String password = UUID.randomUUID().toString();
         List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
+        MemberType memberType = MemberType.valueOf(oAuth2UserInfo.getProvider());   // 유저 정보를 통해 provider(소셜 이름)을 가져온 후 MemberType 열거체로 변환
         Long providerId = oAuth2UserInfo.getProviderId();   // 유저 정보를 통해 providerId(소셜 유저 고유 id)를 가져온다.
 
         // providerId == null 인 경우 예외 터뜨리기
@@ -83,7 +85,7 @@ public class OAuth2Service {
         }
 
         try {
-            memberService.register(email, password, roles, providerId);
+            memberService.register(email, password, roles, memberType, providerId);
             OAuth2Token oAuth2Token = OAuth2Token.builder()
                     .providerId(providerId)
                     .accessToken(oAuth2TokenResponse.getAccess_token())
@@ -110,6 +112,7 @@ public class OAuth2Service {
      * @param providerName 소셜 이름. (google, naver, kakao) 중 하나
      * @param accessToken 사용자의 accessToken
      */
+    @Transactional
     public void logout(String providerName, String accessToken) {
         String email = memberService.logout(accessToken);
 //        Optional<Member> optionalMember = memberRepository.findById(email);  // 이 부분을 수정해야 함
