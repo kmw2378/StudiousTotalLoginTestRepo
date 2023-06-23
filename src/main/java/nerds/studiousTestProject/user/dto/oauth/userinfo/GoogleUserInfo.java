@@ -10,6 +10,11 @@ public class GoogleUserInfo extends OAuth2UserInfo {
     }
 
     @Override
+    public String getProvider() {
+        return "GOOGLE";
+    }
+
+    @Override
     public Long getProviderId() {
         return (long) attributes.get("id").hashCode();
     }

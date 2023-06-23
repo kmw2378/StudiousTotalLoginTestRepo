@@ -1,13 +1,18 @@
 package nerds.studiousTestProject.user.dto.oauth.userinfo;
 
 import java.util.Map;
-import java.util.UUID;
 
 public class NaverUserInfo extends OAuth2UserInfo {
 
     public NaverUserInfo(Map<String, Object> attributes) {
         super(attributes);
     }
+
+    @Override
+    public String getProvider() {
+        return "NAVER";
+    }
+
     @Override
     public Long getProviderId() {
         return (long) parsingProperties().get("id").hashCode();
