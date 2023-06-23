@@ -2,6 +2,7 @@ package nerds.studiousTestProject.user.service.member;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import nerds.studiousTestProject.user.dto.general.MemberType;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.entity.Member;
 import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
@@ -41,7 +42,7 @@ public class MemberService {
      * @param providerId 소셜 로그인인 경우 소셜 서버 유저의 고유 id, 일반 회원가입인 경우는 null
      */
     @Transactional
-    public void register(String email, String password, List<String> roles, Long providerId) {
+    public void register(String email, String password, List<String> roles, MemberType memberType, Long providerId) {
         if ((providerId != null && memberRepository.existsByProviderId(providerId)) || memberRepository.existsByEmail(email)) {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
@@ -52,6 +53,7 @@ public class MemberService {
                 .password(encode)
                 .providerId(providerId)
                 .roles(roles)
+                .type(memberType)
                 .build();
         memberRepository.save(member);
     }
@@ -84,11 +86,9 @@ public class MemberService {
      */
     @Transactional
     public String logout(String accessToken) {
+        // 소셜 계정 로그아웃 시 이 부분에서 예외 발생
+        log.info("accessToken = {}", accessToken);  // 내일 이걸로 확인해보자.
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
-        if (resolvedAccessToken == null) {
-            log.info("accessToken = {}", accessToken);
-            throw new RuntimeException("토큰 해결 중 오류 발생");
-        }
 
         String email = jwtTokenProvider.parseToken(resolvedAccessToken);
         log.info("email = {}", email);
