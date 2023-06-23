@@ -113,7 +113,7 @@ public class OAuth2Service {
      * @param accessToken 사용자의 accessToken
      */
     @Transactional
-    public void logout(String providerName, String accessToken) {
+    public void logout(String accessToken, String providerName) {
         String email = memberService.logout(accessToken);
 //        Optional<Member> optionalMember = memberRepository.findById(email);  // 이 부분을 수정해야 함
         Long providerId = memberService.findProviderIdByEmail(email);   // 위 코드를 이와 같이 수정. 그래도 이상,,,
