@@ -13,7 +13,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
-import nerds.studiousTestProject.user.dto.general.MemberSignUpResponse;
 import nerds.studiousTestProject.user.dto.general.MemberType;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.GrantedAuthority;
@@ -87,13 +86,5 @@ public class Member implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
-    }
-
-    public MemberSignUpResponse toSignUpResponse() {
-        return MemberSignUpResponse.builder()
-                .email(email)
-                .password(password)
-                .roles(roles)
-                .build();
     }
 }
