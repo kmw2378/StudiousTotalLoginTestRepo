@@ -19,14 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class OAuth2Controller {
     private final OAuth2Service oAuth2Service;
 
-    @PostMapping("/login/{provider}")
-    public JwtTokenResponse login(@PathVariable String provider, @RequestParam String code) {
+    @PostMapping("/authenticate/{provider}")
+    public OAuth2AuthenticateResponse authenticate(@PathVariable String provider, @RequestParam String code) {
         log.info("code = {}", code);
-        return oAuth2Service.login(provider, code);
-    }
-
-    @PostMapping("/logout/{provider}")
-    public void logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @PathVariable String provider) {
-        oAuth2Service.logout(accessToken, provider);
+        return oAuth2Service.authenticate(provider, code);
     }
 }
