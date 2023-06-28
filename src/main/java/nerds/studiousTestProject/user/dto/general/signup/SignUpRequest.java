@@ -1,7 +1,8 @@
-package nerds.studiousTestProject.user.dto.general;
+package nerds.studiousTestProject.user.dto.general.signup;
 
 import lombok.Builder;
 import lombok.Data;
+import nerds.studiousTestProject.user.entity.member.MemberType;
 
 import java.util.Date;
 import java.util.List;

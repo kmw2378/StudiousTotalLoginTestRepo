@@ -1,4 +1,4 @@
-package nerds.studiousTestProject.user.dto.general;
+package nerds.studiousTestProject.user.dto.general.login;
 
 import lombok.Data;
 
