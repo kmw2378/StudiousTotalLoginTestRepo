@@ -110,24 +110,8 @@ public class OAuth2Service {
                 .build();
     }
 
-        OAuth2Token oAuth2Token = oAuth2TokenOptional.get();
-        ClientRegistration clientRegistration = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
-        log.info("clientRegistration = {}", clientRegistration);
-        OAuth2LogoutResponse oAuth2LogoutResponse = null;
-        try {
-            oAuth2LogoutResponse = WebClient.create()
-                    .post()
-                    .uri("https://kapi.kakao.com/v1/user/logout")
-                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-                    .header(HttpHeaders.AUTHORIZATION, JwtTokenUtil.TOKEN_PREFIX + " " + oAuth2Token.getAccessToken())
-                    .retrieve()
-                    .bodyToMono(OAuth2LogoutResponse.class)
-                    .block();
-        } catch (WebClientResponseException e) {
-            log.error("msg = {}", e.getMessage());
-            log.error("status = {}", e.getStatusCode());
-            log.error("body = {}", e.getResponseBodyAsString());
-        }
+    private JwtTokenResponse login(Member member) {
+        return jwtTokenProvider.generateToken(member);
     }
 
     /**
