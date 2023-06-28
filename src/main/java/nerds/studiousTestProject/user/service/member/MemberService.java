@@ -36,25 +36,41 @@ public class MemberService {
 
     /**
      * 사용자가 입력한 정보를 가지고 MemberRepository에 저장하는 메소드
-     * @param email 사용자 이메일
-     * @param password 사용자 비밀번호
-     * @param roles 사용자 권한 (이는 추후 회원가입 페이지로 구분할 예정, 일단은 값으로 넣어주자)
-     * @param providerId 소셜 로그인인 경우 소셜 서버 유저의 고유 id, 일반 회원가입인 경우는 null
+     * @param signUpRequest 회원 가입 폼에서 입력한 정보
+     *                      이 때, MemberType은 프론트에서 이전에 백으로 부터 전달받은 값 (없다면 DEFAULT로 넘겨줄 것)
      */
     @Transactional
-    public void register(String email, String password, List<String> roles, MemberType memberType, Long providerId) {
+    public void register(SignUpRequest signUpRequest) {
+        Long providerId = signUpRequest.getProviderId();
+        String email = signUpRequest.getEmail();
+
         if ((providerId != null && memberRepository.existsByProviderId(providerId)) || memberRepository.existsByEmail(email)) {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
 
+        // 만약, MemberType이 null 인 경우를 프론트에서 처리할지 백에서 처리할지 고민
+        // 그냥 백에서 처리하자.
+        MemberType type = signUpRequest.getType();
+        if (type == null) {
+            type = MemberType.DEFAULT;
+        }
+
+        String password = signUpRequest.getPassword();
         String encode = passwordEncoder.encode(password);
         Member member = Member.builder()
                 .email(email)
                 .password(encode)
                 .providerId(providerId)
-                .roles(roles)
-                .type(memberType)
+                .name(signUpRequest.getName())
+                .nickname(signUpRequest.getNickname())
+                .phoneNumber(signUpRequest.getPhoneNumber())
+                .birthday(signUpRequest.getBirthday())
+                .roles(signUpRequest.getRoles())
+                .type(type)
+                .createdDate(new Date())
+                .resignedDate(null)
                 .build();
+        log.info("member = {}", member);
         memberRepository.save(member);
     }
 
