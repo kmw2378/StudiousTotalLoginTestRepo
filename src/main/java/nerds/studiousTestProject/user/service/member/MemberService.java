@@ -2,9 +2,10 @@ package nerds.studiousTestProject.user.service.member;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import nerds.studiousTestProject.user.dto.general.MemberType;
+import nerds.studiousTestProject.user.entity.member.MemberType;
+import nerds.studiousTestProject.user.dto.general.signup.SignUpRequest;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
-import nerds.studiousTestProject.user.entity.Member;
+import nerds.studiousTestProject.user.entity.member.Member;
 import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
@@ -20,7 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Date;
 import java.util.Optional;
 
 @Slf4j
@@ -116,6 +117,7 @@ public class MemberService {
 
         logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(email, resolvedAccessToken, remainTime));
 
+        // LogoutDB 가 과부화될 가능성 있음
         return email;
     }
 
