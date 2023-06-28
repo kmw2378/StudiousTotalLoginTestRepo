@@ -150,35 +150,8 @@ public class MemberService {
         return reissueToken(refreshToken, authentication);
     }
 
-    /**
-     * OAuth2Service 에서 사용
-     * MemberRepository에서 email 값을 통해 providerId 찾아 반환하는 메소드
-     * @param email 회원 이메일
-     * @return 해당 email을 가진 Member의 providerId
-     */
-    public Long findProviderIdByEmail(String email) {
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
-        return memberOptional.orElseThrow(
-                () -> new UserAuthException(ExceptionMessage.USER_NOT_FOUND)
-        ).getProviderId();
-    }
-
-    /**
-     * 이메일, 비밀번호를 검증 후 일치하는 회원 정보 Entity 반환
-     * @param email 사용자가 입력한 이메일
-     * @param password 사용자가 입력한 비밀번호
-     * @return 알맞는 회원 정보
-     */
-    private void authenticate(String email, String password) {
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
-        if (memberOptional.isEmpty()) {
-            throw new UserAuthException(ExceptionMessage.USER_NOT_FOUND);
-        }
-
-        Member member = memberOptional.get();
-        if (!passwordEncoder.matches(password, member.getPassword())) {
-            throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
-        }
+    public Optional<Member> findByProviderId(Long providerId) {
+        return memberRepository.findByProviderId(providerId);
     }
 
     /**
