@@ -4,7 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
-import nerds.studiousTestProject.user.dto.general.MemberType;
+import nerds.studiousTestProject.user.entity.member.MemberType;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 
 @Data
