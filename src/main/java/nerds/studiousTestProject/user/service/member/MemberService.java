@@ -83,14 +83,17 @@ public class MemberService {
      */
     @Transactional
     public JwtTokenResponse login(String email, String password) {
-        String encode = passwordEncoder.encode(password);
-        Optional<Member> memberOptional = memberRepository.findByEmailAndPassword(email, encode);
+        Optional<Member> memberOptional = memberRepository.findByEmail(email);
 
         if (memberOptional.isEmpty()) {
-            throw new UserAuthException(ExceptionMessage.MISMATCH_EMAIL_OR_PASSWORD);
+            throw new UserAuthException(ExceptionMessage.MISMATCH_EMAIL);
         }
 
         Member member = memberOptional.get();
+        if (!passwordEncoder.matches(password, member.getPassword())) {
+            throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
+        }
+
         if (!member.getType().equals(MemberType.DEFAULT)) {
             throw new UserAuthException(ExceptionMessage.NOT_DEFAULT_TYPE_USER);
         }
