@@ -2,10 +2,8 @@ package nerds.studiousTestProject.user.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import nerds.studiousTestProject.user.dto.general.MemberLoginRequest;
-import nerds.studiousTestProject.user.dto.general.MemberSignUpRequest;
-import nerds.studiousTestProject.user.dto.general.MemberSignUpResponse;
-import nerds.studiousTestProject.user.dto.general.MemberType;
+import nerds.studiousTestProject.user.dto.general.login.MemberLoginRequest;
+import nerds.studiousTestProject.user.dto.general.signup.SignUpRequest;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.service.member.MemberService;
 import org.springframework.http.HttpHeaders;
@@ -26,8 +24,8 @@ public class MemberController {
     private final MemberService memberService;
 
     @PostMapping("/signup")
-    public void signUp(@RequestBody MemberSignUpRequest memberSignUpRequest) {
-        memberService.register(memberSignUpRequest.getEmail(), memberSignUpRequest.getPassword(), memberSignUpRequest.getRoles(), MemberType.DEFAULT, null);
+    public void signUp(@RequestBody SignUpRequest signUpRequest) {
+        memberService.register(signUpRequest);
     }
 
     @PostMapping("/login")
@@ -36,8 +34,8 @@ public class MemberController {
     }
 
     @PostMapping("/logout")
-    public void logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken) {
-        memberService.logout(accessToken);
+    public String logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken) {
+        return memberService.logout(accessToken);
     }
 
     @PostMapping("/reissue")
