@@ -1,7 +1,7 @@
 package nerds.studiousTestProject.user.service.member;
 
 import lombok.RequiredArgsConstructor;
-import nerds.studiousTestProject.user.entity.Member;
+import nerds.studiousTestProject.user.entity.member.Member;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
 import nerds.studiousTestProject.user.repository.member.MemberRepository;
 import org.springframework.security.core.userdetails.User;
