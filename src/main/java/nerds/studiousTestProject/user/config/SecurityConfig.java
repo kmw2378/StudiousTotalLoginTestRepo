@@ -37,7 +37,7 @@ public class SecurityConfig {
                 .requestMatchers("/members/signup", "/members/login").permitAll()
                 .requestMatchers("/members/logout", "/members/reissue").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
                 .requestMatchers("/members/test").hasRole("USER")
-                .requestMatchers("/oauth/login/**").permitAll()
+                .requestMatchers("/oauth/authenticate/**").permitAll()
 //                .requestMatchers("/oauth/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")
                 .anyRequest().authenticated()
                 .and()
