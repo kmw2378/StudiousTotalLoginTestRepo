@@ -3,20 +3,18 @@ package nerds.studiousTestProject.user.service.oauth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import nerds.studiousTestProject.user.dto.general.MemberType;
+import nerds.studiousTestProject.user.entity.member.MemberType;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
-import nerds.studiousTestProject.user.dto.oauth.token.OAuth2LogoutResponse;
+import nerds.studiousTestProject.user.dto.oauth.signup.OAuth2AuthenticateResponse;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2TokenRequest;
 import nerds.studiousTestProject.user.dto.oauth.token.OAuth2TokenResponse;
 import nerds.studiousTestProject.user.dto.oauth.userinfo.OAuth2UserInfo;
 import nerds.studiousTestProject.user.dto.oauth.userinfo.OAuth2UserInfoFactory;
-import nerds.studiousTestProject.user.entity.oauth.OAuth2Token;
+import nerds.studiousTestProject.user.entity.member.Member;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
 import nerds.studiousTestProject.user.exception.model.UserAuthException;
-import nerds.studiousTestProject.user.repository.oauth.OAuth2TokenRepository;
 import nerds.studiousTestProject.user.service.member.MemberService;
-import nerds.studiousTestProject.user.util.DateConverter;
-import nerds.studiousTestProject.user.util.JwtTokenUtil;
+import nerds.studiousTestProject.user.util.JwtTokenProvider;
 import nerds.studiousTestProject.user.util.MultiValueMapConverter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -29,26 +27,23 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 @Transactional(readOnly = true)
 public class OAuth2Service {
-    private final OAuth2TokenRepository oAuth2TokenRepository;
     private final InMemoryClientRegistrationRepository inMemoryClientRegistrationRepository;
     private final MemberService memberService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     /**
      * 소셜 인가 코드를 통해 소셜 서버로부터 토큰을 발급받는다.
      *  발급받은 토큰을 통해 로그인
      *  (만약, 회원 정보가 없는 경우 신규 등록)
-     * @param providerName 소셜 이름. (google, naver, kakao) 중 하나
+     * @param provider 소셜 이름 (google, naver, kakao) 중 하나
      * @param code 소셜 인가 코드
      * @return 소셜 서버로부터 발급받은 토큰을 통해 생성한 새로운 토큰
      */
