@@ -53,74 +53,62 @@ public class OAuth2Service {
      * @return 소셜 서버로부터 발급받은 토큰을 통해 생성한 새로운 토큰
      */
     @Transactional
-    public JwtTokenResponse login(String providerName, String code) {
-        ClientRegistration provider = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
-        log.info("provider = {}", provider.toString());
+    public OAuth2AuthenticateResponse authenticate(String provider, String code) {
+        // application.properties (설정 파일)에 적어둔 정보들로 생성한 객체 중
+        // registrationId 값이 현재 소셜 이름과 일치하는 객체를 가져온다.
+        ClientRegistration clientRegistration = inMemoryClientRegistrationRepository.findByRegistrationId(provider);
+        log.info("clientRegistration = {}", clientRegistration.toString());
 
-        // 토큰 받아오기
+        // 소셜 서버로 부터 토큰 받아오기
         // 이는 실제 사용할 토큰이 아닌 유저 정보를 가져오기 위한 토큰 정보이다.
-        OAuth2TokenResponse oAuth2TokenResponse = getSocialToken(code, provider);
+        OAuth2TokenResponse oAuth2TokenResponse = getSocialToken(code, clientRegistration);
         log.debug("token = {}", oAuth2TokenResponse.toString());
 
         // 소셜 엑세스 토큰을 통해 사용자 정보 받아오기
-        Map<String, Object> attributes = getUserAttributes(provider, oAuth2TokenResponse);
+        Map<String, Object> attributes = getUserAttributes(clientRegistration, oAuth2TokenResponse);
         log.info("attributes = {}", attributes);
 
         // 팩토리 클래스를 통해 구글, 네이버, 카카오 중 알맞는 소셜 사용자 정보를 가져온다.
-        OAuth2UserInfo oAuth2UserInfo = getOAuth2UserInfo(providerName, attributes);
+        OAuth2UserInfo oAuth2UserInfo = getOAuth2UserInfo(provider, attributes);
         log.info("userInfo = {}", oAuth2UserInfo.toString());
 
-        // 유저 정보를 통해 이메일, 비밀번호 생성 (이 때, 비밀번호는 UUID 를 통해 랜덤으로 생성)
-        // 이메일이 안넘어오는 경우 (사용자가 동의 X) 는 UUID를 사용하여 이메일 생성 => 이러면 하나의 사용자에 대해 이메일이 여러 개 생성되므로,,, 필수 제공 정보(이름)을 가지고 고유 이메일 생성?
-        String email = oAuth2UserInfo.getEmail();
-        String password = UUID.randomUUID().toString();
-        List<String> roles = Collections.singletonList("USER"); // ROLE 주입 (이는 추후 페이지로 구분하여 자동으로 주입되도록 바꿀 예정)
-        MemberType memberType = MemberType.valueOf(oAuth2UserInfo.getProvider());   // 유저 정보를 통해 provider(소셜 이름)을 가져온 후 MemberType 열거체로 변환
-        Long providerId = oAuth2UserInfo.getProviderId();   // 유저 정보를 통해 providerId(소셜 유저 고유 id)를 가져온다.
-
-        // providerId == null 인 경우 예외 터뜨리기
+        // 소셜 회원은 각각 고유의 소셜 Id 값(providerId)을 가진다. 이 값은 소셜 서버로부터 얻어온 사용자 정보에서 가져온다.
+        // providerId == null 인 경우 (사용자 정보를 가져오지 못한 경우) 예외 발생
+        Long providerId = oAuth2UserInfo.getProviderId();
         if (providerId == null) {
-            log.error("providerId = {}", oAuth2UserInfo.getProviderId());
+            log.error("providerId = {}", providerId);
             throw new UserAuthException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
         }
 
-        try {
-            memberService.register(email, password, roles, memberType, providerId);
-            OAuth2Token oAuth2Token = OAuth2Token.builder()
+        // providerId를 통해 MemberRepository 확인
+        Optional<Member> memberOptional = memberService.findByProviderId(providerId);
+
+        // 응답 Body에 담을 객체 생성
+        boolean exist = memberOptional.isPresent(); // 기존 회원인지 여부
+        JwtTokenResponse jwtTokenResponse = null;
+        OAuth2AuthenticateResponse.UserInfo userInfo = null;
+
+        if (exist) {
+            // 기존 회원인 경우 바로 로그인 메소드를 통해 토큰을 발급
+            // 이때, AccessToken이 발급되며 RefreshToken은 응답 쿠키에 저장된다. (login 메소드를 참고)
+            jwtTokenResponse = this.login(memberOptional.get());
+        } else {
+            // 신규 회원인 경우는 providerId, 소셜 타입, 이메일 정보를 저장
+            // 추후, 이 값은 회원 가입 페이지로 넘어갈 때 사용된다.
+            userInfo = OAuth2AuthenticateResponse.UserInfo.builder()
                     .providerId(providerId)
-                    .accessToken(oAuth2TokenResponse.getAccess_token())
-                    .refreshToken(oAuth2TokenResponse.getRefresh_token())
-                    .expiredAt(DateConverter.toLocalDateTime(oAuth2TokenResponse.getExpires_in()))
+                    .email(oAuth2UserInfo.getEmail())
+                    .type(MemberType.valueOf(oAuth2UserInfo.getProvider()))
                     .build();
-            log.info("oAuth2Token = {}", oAuth2Token.toString());
-            oAuth2TokenRepository.save(oAuth2Token);    // 기존 소셜 토큰 정보를 DB에 저장 (추후 로그아웃을 위해)
-        } catch (UserAuthException e) {
-            log.error("msg = {}", e.getMessage());
         }
 
-        try {
-            return memberService.login(email, password);
-        } catch (UserAuthException e) {
-            log.error("msg = {}", e.getMessage());
-            throw new RuntimeException("소셜 로그인 실패");
-        }
+        return OAuth2AuthenticateResponse
+                .builder()
+                .exist(exist)
+                .jwtTokenResponse(jwtTokenResponse)
+                .userInfo(userInfo)
+                .build();
     }
-
-    /**
-     * 현재 사용자의 토큰을 만료시고 블랙리스트에 저장한다.
-     *  그리고, 소셜 서버로부터 발급받은 토큰을 DB에서 삭제하는 메소드
-     * @param providerName 소셜 이름. (google, naver, kakao) 중 하나
-     * @param accessToken 사용자의 accessToken
-     */
-    @Transactional
-    public void logout(String accessToken, String providerName) {
-        String email = memberService.logout(accessToken);
-//        Optional<Member> optionalMember = memberRepository.findById(email);  // 이 부분을 수정해야 함
-        Long providerId = memberService.findProviderIdByEmail(email);   // 위 코드를 이와 같이 수정. 그래도 이상,,,
-        Optional<OAuth2Token> oAuth2TokenOptional = oAuth2TokenRepository.findByProviderId(providerId);
-        if (oAuth2TokenOptional.isEmpty()) {
-            throw new RuntimeException("소셜 토큰 저장소에 없는 토큰입니다.");
-        }
 
         OAuth2Token oAuth2Token = oAuth2TokenOptional.get();
         ClientRegistration clientRegistration = inMemoryClientRegistrationRepository.findByRegistrationId(providerName);
