@@ -1,4 +1,4 @@
-package nerds.studiousTestProject.user.entity;
+package nerds.studiousTestProject.user.entity.member;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -13,7 +13,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
-import nerds.studiousTestProject.user.dto.general.MemberType;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -21,6 +20,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -50,6 +50,17 @@ public class Member implements UserDetails {
 
     @Enumerated(value = EnumType.STRING)
     private MemberType type;
+
+    private String name;
+    private String nickname;
+    private Date birthday;
+
+    @Column(name = "phone_number")
+    private String phoneNumber;
+    private Date createdDate;
+
+    @Nullable
+    private Date resignedDate;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
