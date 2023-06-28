@@ -124,7 +124,7 @@ public class OAuth2Service {
     private OAuth2UserInfo getOAuth2UserInfo(String providerName, Map<String, Object> attributes) {
         OAuth2UserInfo oAuth2UserInfo;
         try {
-           oAuth2UserInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(providerName, attributes);
+           oAuth2UserInfo = OAuth2UserInfoFactory.getInstance(providerName, attributes);
         } catch (IllegalArgumentException e) {
             log.error("providerName = {}", providerName);
             log.error("attributes = {}", attributes);
