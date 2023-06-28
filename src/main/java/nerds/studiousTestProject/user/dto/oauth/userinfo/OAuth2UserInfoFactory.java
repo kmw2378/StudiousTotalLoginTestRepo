@@ -3,8 +3,7 @@ package nerds.studiousTestProject.user.dto.oauth.userinfo;
 import java.util.Map;
 
 public class OAuth2UserInfoFactory {
-
-    public static OAuth2UserInfo getOAuth2UserInfo(String registrationId, Map<String, Object> attributes) {
+    public static OAuth2UserInfo getInstance(String registrationId, Map<String, Object> attributes) {
         return switch (registrationId.toLowerCase()) {
             case "google" -> new GoogleUserInfo(attributes);
             case "naver" -> new NaverUserInfo(attributes);
