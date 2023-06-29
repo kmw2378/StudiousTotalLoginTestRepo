@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -145,19 +146,39 @@ public class MemberService {
         return member.getEmail();
     }
 
+    /**
+     * 이메일과 전화번호를 통해 알맞는 회원의 비밀번호를 임시 비밀번호로 수정 및 임시 비밀번호를 반환하는 메소드
+     * @param email 이메일
+     * @param phoneNumber 전화번호
+     * @return 발급된 임시 비밀번호
+     */
     @Transactional
-    public void passwordChange(String email, String oldPassword, String newPassword) {
-        // 기존 비밀번호로 어떻게 찾지 ? => 이메일 정보가 있어야 함
+    public String issueTemporaryPassword(String email, String phoneNumber) {
         Optional<Member> memberOptional = memberRepository.findByEmail(email);
         if (memberOptional.isEmpty()) {
-            throw new RuntimeException("토큰의 이메일 정보가 잘못되었습니다.");
+            throw new RuntimeException("이메일 정보가 올바르지 않습니다.");
         }
 
         Member member = memberOptional.get();
+
         if (!member.getType().equals(MemberType.DEFAULT)) {
             throw new RuntimeException("소셜 연동 계정 입니다. 소셜 로그인을 이용해주세요.");
         }
 
+        if (member.getPhoneNumber().equals(phoneNumber)) {
+            throw new RuntimeException("이메일과 전화 번호가 일치하지 않습니다.");
+        }
+
+        String temporaryPassword = UUID.randomUUID().toString().substring(0, 8);
+        String encode = passwordEncoder.encode(temporaryPassword);
+        member.updatePassword(encode);
+
+        return temporaryPassword;
+    }
+
+    @Transactional
+    public void replacePassword(String accessToken, String oldPassword, String newPassword) {
+        Member member = getMemberFromAccessToken(accessToken);
         if (!passwordEncoder.matches(oldPassword, member.getPassword())) {
             throw new RuntimeException("기존 비밀번호가 일치하지 않습니다.");
         }
@@ -168,27 +189,20 @@ public class MemberService {
     }
 
     @Transactional
-    public void nicknameChange(String accessToken, String nickname) {
+    public void replaceNickname(String accessToken, String nickname) {
         Member member = getMemberFromAccessToken(accessToken);
         member.updateNickname(nickname);
     }
 
     @Transactional
-    public void withdraw(String accessToken) {
+    public void deactivate(String accessToken, String password) {
         Member member = getMemberFromAccessToken(accessToken);
-        member.withdraw();
-        logout(accessToken);
-    }
-
-    private Member getMemberFromAccessToken(String accessToken) {
-        String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
-
-        String email = jwtTokenProvider.parseToken(resolvedAccessToken);
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
-        if (memberOptional.isEmpty()) {
-            throw new RuntimeException("탈퇴 중 회원 정보 찾기 오류. 토큰에 해당하는 이메일 정보가 옳지 않음");
+        if (!passwordEncoder.matches(password, member.getPassword())) {
+            throw new RuntimeException("비밀번호가 일치하지 않습니다.");
         }
-        return memberOptional.get();
+
+        member.withdraw();
+        expireToken(accessToken);
     }
 
     /**
