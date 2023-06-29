@@ -31,7 +31,7 @@ public class MemberController {
 
     @PostMapping("/login")
     public JwtTokenResponse login(@RequestBody MemberLoginRequest memberLoginRequest) {
-        return memberService.login(memberLoginRequest.getEmail(), memberLoginRequest.getPassword());
+        return memberService.issueToken(memberLoginRequest.getEmail(), memberLoginRequest.getPassword());
     }
 
     @GetMapping("/email")
@@ -39,24 +39,34 @@ public class MemberController {
         return memberService.findEmailFromPhoneNumber(phoneNumber);
     }
 
+    @PostMapping("/password")
+    public String findPassword(@RequestBody String email, @RequestBody String phoneNumber) {
+        return memberService.issueTemporaryPassword(email, phoneNumber);
+    }
+
     @PatchMapping("/nickname")
-    public void patchNickname(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @RequestBody String nickname) {
-        memberService.nicknameChange(accessToken, nickname);
+    public void patchNickname(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @RequestBody String newNickname) {
+        memberService.replaceNickname(accessToken, newNickname);
+    }
+
+    @PatchMapping("/password")
+    public void patchPassword(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @RequestBody String oldPassword, @RequestBody String newPassword) {
+        memberService.replacePassword(accessToken, oldPassword, newPassword);
     }
 
     @PostMapping("/logout")
     public String logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken) {
-        return memberService.logout(accessToken);
+        return memberService.expireToken(accessToken);
     }
 
     @PostMapping("/withdraw")
-    public void withdraw(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken) {
-        memberService.withdraw(accessToken);
+    public void withdraw(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @RequestBody String password) {
+        memberService.deactivate(accessToken, password);
     }
 
     @PostMapping("/reissue")
     public JwtTokenResponse reissue(@CookieValue("refresh_token") String refreshToken) {
-        return memberService.reissue(refreshToken);
+        return memberService.reissueToken(refreshToken);
     }
 
     /**
