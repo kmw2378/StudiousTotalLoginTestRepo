@@ -130,6 +130,67 @@ public class MemberService {
         return email;
     }
 
+    @Transactional
+    public String findEmailFromPhoneNumber(String phoneNumber) {
+        Optional<Member> memberOptional = memberRepository.findByPhoneNumber(phoneNumber);
+        if (memberOptional.isEmpty()) {
+            throw new RuntimeException("일치하는 회원 정보가 없습니다.");
+        }
+
+        Member member = memberOptional.get();
+        if (!member.getType().equals(MemberType.DEFAULT)) {
+            throw new RuntimeException("소셜 연동 계정 입니다. 소셜 로그인을 이용해주세요.");
+        }
+
+        return member.getEmail();
+    }
+
+    @Transactional
+    public void passwordChange(String email, String oldPassword, String newPassword) {
+        // 기존 비밀번호로 어떻게 찾지 ? => 이메일 정보가 있어야 함
+        Optional<Member> memberOptional = memberRepository.findByEmail(email);
+        if (memberOptional.isEmpty()) {
+            throw new RuntimeException("토큰의 이메일 정보가 잘못되었습니다.");
+        }
+
+        Member member = memberOptional.get();
+        if (!member.getType().equals(MemberType.DEFAULT)) {
+            throw new RuntimeException("소셜 연동 계정 입니다. 소셜 로그인을 이용해주세요.");
+        }
+
+        if (!passwordEncoder.matches(oldPassword, member.getPassword())) {
+            throw new RuntimeException("기존 비밀번호가 일치하지 않습니다.");
+        }
+
+        // 회원 비밀번호 수정
+        String encode = passwordEncoder.encode(newPassword);
+        member.updatePassword(encode);
+    }
+
+    @Transactional
+    public void nicknameChange(String accessToken, String nickname) {
+        Member member = getMemberFromAccessToken(accessToken);
+        member.updateNickname(nickname);
+    }
+
+    @Transactional
+    public void withdraw(String accessToken) {
+        Member member = getMemberFromAccessToken(accessToken);
+        member.withdraw();
+        logout(accessToken);
+    }
+
+    private Member getMemberFromAccessToken(String accessToken) {
+        String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
+
+        String email = jwtTokenProvider.parseToken(resolvedAccessToken);
+        Optional<Member> memberOptional = memberRepository.findByEmail(email);
+        if (memberOptional.isEmpty()) {
+            throw new RuntimeException("탈퇴 중 회원 정보 찾기 오류. 토큰에 해당하는 이메일 정보가 옳지 않음");
+        }
+        return memberOptional.get();
+    }
+
     /**
      * 사용자가 만료된 accessToken 과 만료되지 않은 refreshToken을 넘길 때 새로운 accessToken을 만들어 주는 메소드
      * @param refreshToken 사용자로부터 넘겨 받은 refreshToken
