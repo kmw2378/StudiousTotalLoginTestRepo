@@ -166,7 +166,7 @@ public class MemberService {
         }
 
         if (member.getPhoneNumber().equals(phoneNumber)) {
-            throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
+            throw new UserAuthException(ExceptionMessage.MISMATCH_PHONE_NUMBER);
         }
 
         String temporaryPassword = UUID.randomUUID().toString().substring(0, 8);
