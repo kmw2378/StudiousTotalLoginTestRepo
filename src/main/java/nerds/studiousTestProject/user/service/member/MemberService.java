@@ -91,7 +91,7 @@ public class MemberService {
      * @return 발급한 토큰 정보
      */
     @Transactional
-    public JwtTokenResponse login(String email, String password) {
+    public JwtTokenResponse issueToken(String email, String password) {
         Optional<Member> memberOptional = memberRepository.findByEmail(email);
 
         if (memberOptional.isEmpty()) {
@@ -116,7 +116,7 @@ public class MemberService {
      * @return 현재 사용자의 이메일
      */
     @Transactional
-    public String logout(String accessToken) {
+    public String expireToken(String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
 
         String email = jwtTokenProvider.parseToken(resolvedAccessToken);
@@ -207,11 +207,12 @@ public class MemberService {
 
     /**
      * 사용자가 만료된 accessToken 과 만료되지 않은 refreshToken을 넘길 때 새로운 accessToken을 만들어 주는 메소드
+     * RefreshToken의 유효기간을 확인 후, 토큰을 재발급해주는 메소드
      * @param refreshToken 사용자로부터 넘겨 받은 refreshToken
      * @return 새로운 accessToken 이 담긴 JwtTokenResponse 객체
      */
     @Transactional
-    public JwtTokenResponse reissue(String refreshToken) {
+    public JwtTokenResponse reissueToken(String refreshToken) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getName() == null) {
             log.info("auth = {}", authentication);
@@ -233,21 +234,22 @@ public class MemberService {
 //        Member member = memberRepository.findById(currentEmail).get();
 //        String password = passwordEncoder.encode(member.getPassword());
 
-        return reissueToken(refreshToken, authentication);
+        String reissueAccessToken = jwtTokenProvider.reissueToken(refreshToken, authentication);
+        return JwtTokenResponse.from(reissueAccessToken);
     }
 
     public Optional<Member> findByProviderId(Long providerId) {
         return memberRepository.findByProviderId(providerId);
     }
 
-    /**
-     * RefreshToken의 유효기간을 확인 후, 토큰을 재발급해주는 메소드
-     * @param refreshToken 사용자의 RefreshToken
-     * @param authentication 사용자의 인증 정보
-     * @return 재발급된 accessToken
-     */
-    private JwtTokenResponse reissueToken(String refreshToken, Authentication authentication) {
-        String reissueAccessToken = jwtTokenProvider.reissueToken(refreshToken, authentication);
-        return JwtTokenResponse.from(reissueAccessToken);
+    private Member getMemberFromAccessToken(String accessToken) {
+        String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
+
+        String email = jwtTokenProvider.parseToken(resolvedAccessToken);
+        Optional<Member> memberOptional = memberRepository.findByEmail(email);
+        if (memberOptional.isEmpty()) {
+            throw new RuntimeException("탈퇴 중 회원 정보 찾기 오류. 토큰에 해당하는 이메일 정보가 옳지 않음");
+        }
+        return memberOptional.get();
     }
 }
