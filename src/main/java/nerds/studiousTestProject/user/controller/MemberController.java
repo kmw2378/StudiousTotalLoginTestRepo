@@ -9,6 +9,7 @@ import nerds.studiousTestProject.user.service.member.MemberService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -33,9 +34,24 @@ public class MemberController {
         return memberService.login(memberLoginRequest.getEmail(), memberLoginRequest.getPassword());
     }
 
+    @GetMapping("/email")
+    public String findEmail(@RequestBody String phoneNumber) {
+        return memberService.findEmailFromPhoneNumber(phoneNumber);
+    }
+
+    @PatchMapping("/nickname")
+    public void patchNickname(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @RequestBody String nickname) {
+        memberService.nicknameChange(accessToken, nickname);
+    }
+
     @PostMapping("/logout")
     public String logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken) {
         return memberService.logout(accessToken);
+    }
+
+    @PostMapping("/withdraw")
+    public void withdraw(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken) {
+        memberService.withdraw(accessToken);
     }
 
     @PostMapping("/reissue")
