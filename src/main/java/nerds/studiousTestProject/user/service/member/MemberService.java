@@ -38,15 +38,21 @@ public class MemberService {
     /**
      * 사용자가 입력한 정보를 가지고 MemberRepository에 저장하는 메소드
      * @param signUpRequest 회원 가입 폼에서 입력한 정보
-     *                      이 때, MemberType은 프론트에서 이전에 백으로 부터 전달받은 값 (없다면 DEFAULT로 넘겨줄 것)
+     *                      이 때, MemberType은 프론트에서 이전에 백으로 부터 전달받은 값 (없다면 null)
+     * @return 회원가입한 정보로 만든 토큰 값
      */
     @Transactional
-    public void register(SignUpRequest signUpRequest) {
+    public JwtTokenResponse register(SignUpRequest signUpRequest) {
         Long providerId = signUpRequest.getProviderId();
         String email = signUpRequest.getEmail();
 
         if ((providerId != null && memberRepository.existsByProviderId(providerId)) || memberRepository.existsByEmail(email)) {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
+        }
+
+        String phoneNumber = signUpRequest.getPhoneNumber();
+        if (memberRepository.existsByPhoneNumber(phoneNumber)) {
+            throw new UserAuthException(ExceptionMessage.PHONE_NUMBER_ALREADY_EXIST);
         }
 
         // 만약, MemberType이 null 인 경우를 프론트에서 처리할지 백에서 처리할지 고민
@@ -64,15 +70,17 @@ public class MemberService {
                 .providerId(providerId)
                 .name(signUpRequest.getName())
                 .nickname(signUpRequest.getNickname())
-                .phoneNumber(signUpRequest.getPhoneNumber())
+                .phoneNumber(phoneNumber)
                 .birthday(signUpRequest.getBirthday())
                 .roles(signUpRequest.getRoles())
                 .type(type)
                 .createdDate(new Date())
+                .usable(true)
                 .resignedDate(null)
                 .build();
         log.info("member = {}", member);
         memberRepository.save(member);
+        return jwtTokenProvider.generateToken(member);
     }
 
     /**
@@ -108,8 +116,6 @@ public class MemberService {
      */
     @Transactional
     public String logout(String accessToken) {
-        // 소셜 계정 로그아웃 시 이 부분에서 예외 발생
-        log.info("accessToken = {}", accessToken);  // 내일 이걸로 확인해보자.
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
 
         String email = jwtTokenProvider.parseToken(resolvedAccessToken);
