@@ -58,9 +58,22 @@ public class Member implements UserDetails {
     @Column(name = "phone_number")
     private String phoneNumber;
     private Date createdDate;
+    private boolean usable;
 
     @Nullable
     private Date resignedDate;
+
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
+    public void withdraw() {
+        this.usable = false;
+        this.resignedDate = new Date();
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
