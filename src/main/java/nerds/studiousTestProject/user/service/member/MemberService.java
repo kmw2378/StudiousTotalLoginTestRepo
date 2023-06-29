@@ -135,12 +135,12 @@ public class MemberService {
     public String findEmailFromPhoneNumber(String phoneNumber) {
         Optional<Member> memberOptional = memberRepository.findByPhoneNumber(phoneNumber);
         if (memberOptional.isEmpty()) {
-            throw new RuntimeException("일치하는 회원 정보가 없습니다.");
+            throw new UserAuthException(ExceptionMessage.USER_NOT_FOUND);
         }
 
         Member member = memberOptional.get();
         if (!member.getType().equals(MemberType.DEFAULT)) {
-            throw new RuntimeException("소셜 연동 계정 입니다. 소셜 로그인을 이용해주세요.");
+            throw new UserAuthException(ExceptionMessage.NOT_DEFAULT_TYPE_USER);
         }
 
         return member.getEmail();
@@ -156,17 +156,17 @@ public class MemberService {
     public String issueTemporaryPassword(String email, String phoneNumber) {
         Optional<Member> memberOptional = memberRepository.findByEmail(email);
         if (memberOptional.isEmpty()) {
-            throw new RuntimeException("이메일 정보가 올바르지 않습니다.");
+            throw new UserAuthException(ExceptionMessage.MISMATCH_EMAIL);
         }
 
         Member member = memberOptional.get();
 
         if (!member.getType().equals(MemberType.DEFAULT)) {
-            throw new RuntimeException("소셜 연동 계정 입니다. 소셜 로그인을 이용해주세요.");
+            throw new UserAuthException(ExceptionMessage.NOT_DEFAULT_TYPE_USER);
         }
 
         if (member.getPhoneNumber().equals(phoneNumber)) {
-            throw new RuntimeException("이메일과 전화 번호가 일치하지 않습니다.");
+            throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
         }
 
         String temporaryPassword = UUID.randomUUID().toString().substring(0, 8);
@@ -180,7 +180,7 @@ public class MemberService {
     public void replacePassword(String accessToken, String oldPassword, String newPassword) {
         Member member = getMemberFromAccessToken(accessToken);
         if (!passwordEncoder.matches(oldPassword, member.getPassword())) {
-            throw new RuntimeException("기존 비밀번호가 일치하지 않습니다.");
+            throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
         }
 
         // 회원 비밀번호 수정
@@ -198,7 +198,7 @@ public class MemberService {
     public void deactivate(String accessToken, String password) {
         Member member = getMemberFromAccessToken(accessToken);
         if (!passwordEncoder.matches(password, member.getPassword())) {
-            throw new RuntimeException("비밀번호가 일치하지 않습니다.");
+            throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
         }
 
         member.withdraw();
@@ -248,8 +248,9 @@ public class MemberService {
         String email = jwtTokenProvider.parseToken(resolvedAccessToken);
         Optional<Member> memberOptional = memberRepository.findByEmail(email);
         if (memberOptional.isEmpty()) {
-            throw new RuntimeException("탈퇴 중 회원 정보 찾기 오류. 토큰에 해당하는 이메일 정보가 옳지 않음");
+            throw new UserAuthException(ExceptionMessage.MISMATCH_USERNAME_TOKEN);
         }
+
         return memberOptional.get();
     }
 }
