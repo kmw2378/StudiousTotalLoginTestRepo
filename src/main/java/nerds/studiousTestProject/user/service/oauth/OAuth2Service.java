@@ -85,7 +85,7 @@ public class OAuth2Service {
 
         if (exist) {
             // 기존 회원인 경우 바로 로그인 메소드를 통해 토큰을 발급
-            // 이때, AccessToken이 발급되며 RefreshToken은 응답 쿠키에 저장된다. (login 메소드를 참고)
+            // 이때, AccessToken이 발급되며 RefreshToken은 응답 쿠키에 저장된다. (issueToken 메소드를 참고)
             jwtTokenResponse = this.login(memberOptional.get());
         } else {
             // 신규 회원인 경우는 providerId, 소셜 타입, 이메일 정보를 저장
