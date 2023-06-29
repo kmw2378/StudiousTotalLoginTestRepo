@@ -25,8 +25,8 @@ public class MemberController {
     private final MemberService memberService;
 
     @PostMapping("/signup")
-    public void signUp(@RequestBody SignUpRequest signUpRequest) {
-        memberService.register(signUpRequest);
+    public JwtTokenResponse signUp(@RequestBody SignUpRequest signUpRequest) {
+        return memberService.register(signUpRequest);
     }
 
     @PostMapping("/login")
