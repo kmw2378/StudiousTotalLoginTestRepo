@@ -5,6 +5,7 @@ public enum ExceptionMessage {
     MISMATCH_PASSWORD("비밀번호가 일치하지 않습니다."),
     MISMATCH_EMAIL_OR_PASSWORD("아이디 혹은 비밀번호가 일치하지 않습니다."),
     ALREADY_EXIST_USER("이미 존재하는 회원입니다."),
+    PHONE_NUMBER_ALREADY_EXIST("해당 전화번호로 가입한 계정이 이미 존재합니다."),
     LOGOUT_USER("로그아웃된 회원입니다."),
     MISMATCH_USERNAME_TOKEN("아이디와 토큰값이 일치하지 않습니다."),
     NOT_AUTHORIZE_ACCESS("인증되지 않은 접근입니다."),
