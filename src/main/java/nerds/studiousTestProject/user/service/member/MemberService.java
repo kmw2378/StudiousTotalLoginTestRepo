@@ -47,20 +47,23 @@ public class MemberService {
         Long providerId = signUpRequest.getProviderId();
         String email = signUpRequest.getEmail();
 
-        if ((providerId != null && memberRepository.existsByProviderId(providerId)) || memberRepository.existsByEmail(email)) {
+        if ((providerId != null && memberRepository.existsByProviderId(providerId))) {
+            throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
+        }
+
+        MemberType type = signUpRequest.getType();
+        if (type == null) {
+            type = MemberType.DEFAULT;
+        }
+
+        Optional<Member> memberOptional = memberRepository.findByEmail(email);
+        if (memberOptional.isPresent() && memberOptional.get().getType().equals(type)) {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
 
         String phoneNumber = signUpRequest.getPhoneNumber();
         if (memberRepository.existsByPhoneNumber(phoneNumber)) {
             throw new UserAuthException(ExceptionMessage.PHONE_NUMBER_ALREADY_EXIST);
-        }
-
-        // 만약, MemberType이 null 인 경우를 프론트에서 처리할지 백에서 처리할지 고민
-        // 그냥 백에서 처리하자.
-        MemberType type = signUpRequest.getType();
-        if (type == null) {
-            type = MemberType.DEFAULT;
         }
 
         String password = signUpRequest.getPassword();
