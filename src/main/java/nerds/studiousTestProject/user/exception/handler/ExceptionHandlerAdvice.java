@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ExceptionHandlerAdvice {
     @ExceptionHandler(value = Exception.class)
     public ResponseEntity<ExceptionDto> exceptionHandler(Exception exception, HttpServletResponse response) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
                 .body(ExceptionDto.builder()
                         .message(String.format("%s", exception.getMessage()))
                         .statusCode(response.getStatus())
