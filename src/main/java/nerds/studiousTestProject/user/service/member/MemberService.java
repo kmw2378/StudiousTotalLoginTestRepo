@@ -42,39 +42,21 @@ public class MemberService {
      *                      이 때, MemberType은 프론트에서 이전에 백으로 부터 전달받은 값 (없다면 null)
      * @return 회원가입한 정보로 만든 토큰 값
      */
+
     @Transactional
     public JwtTokenResponse register(SignUpRequest signUpRequest) {
-        Long providerId = signUpRequest.getProviderId();
-        String email = signUpRequest.getEmail();
-
-        if ((providerId != null && memberRepository.existsByProviderId(providerId))) {
-            throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
-        }
-
-        MemberType type = signUpRequest.getType();
-        if (type == null) {
-            type = MemberType.DEFAULT;
-        }
-
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
-        if (memberOptional.isPresent() && memberOptional.get().getType().equals(type)) {
-            throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
-        }
-
-        String phoneNumber = signUpRequest.getPhoneNumber();
-        if (memberRepository.existsByPhoneNumber(phoneNumber)) {
-            throw new UserAuthException(ExceptionMessage.PHONE_NUMBER_ALREADY_EXIST);
-        }
+        MemberType type = MemberType.handle(signUpRequest.getType());
+        validate(signUpRequest, type);
 
         String password = signUpRequest.getPassword();
         String encode = passwordEncoder.encode(password);
         Member member = Member.builder()
-                .email(email)
+                .email(signUpRequest.getEmail())
                 .password(encode)
-                .providerId(providerId)
+                .providerId(signUpRequest.getProviderId())
                 .name(signUpRequest.getName())
                 .nickname(signUpRequest.getNickname())
-                .phoneNumber(phoneNumber)
+                .phoneNumber(signUpRequest.getPhoneNumber())
                 .birthday(signUpRequest.getBirthday())
                 .roles(signUpRequest.getRoles())
                 .type(type)
@@ -82,8 +64,10 @@ public class MemberService {
                 .usable(true)
                 .resignedDate(null)
                 .build();
-        log.info("member = {}", member);
+
+        log.info("created member = {}", member);
         memberRepository.save(member);
+
         return jwtTokenProvider.generateToken(member);
     }
 
@@ -243,6 +227,28 @@ public class MemberService {
 
     public Optional<Member> findByProviderId(Long providerId) {
         return memberRepository.findByProviderId(providerId);
+    }
+
+    private void validate(SignUpRequest signUpRequest, MemberType type) {
+        Long providerId = signUpRequest.getProviderId();
+        if (providerId == null && !type.equals(MemberType.DEFAULT)) {
+            throw new UserAuthException(ExceptionMessage.NOT_EXIST_PROVIDER_ID);
+        }
+
+        if ((providerId != null && memberRepository.existsByProviderId(providerId))) {
+            throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
+        }
+
+        String email = signUpRequest.getEmail();
+        Optional<Member> memberOptional = memberRepository.findByEmail(email);
+        if (memberOptional.isPresent() && memberOptional.get().getType().equals(type)) {
+            throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
+        }
+
+        String phoneNumber = signUpRequest.getPhoneNumber();
+        if (memberRepository.existsByPhoneNumber(phoneNumber)) {
+            throw new UserAuthException(ExceptionMessage.PHONE_NUMBER_ALREADY_EXIST);
+        }
     }
 
     private Member getMemberFromAccessToken(String accessToken) {
