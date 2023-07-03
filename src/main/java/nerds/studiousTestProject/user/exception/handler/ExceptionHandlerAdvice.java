@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 public class ExceptionHandlerAdvice {
     @ExceptionHandler(value = Exception.class)
-    public ResponseEntity<ExceptionDto> exceptionHandler(Exception exception, HttpServletResponse response) {
-        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+    public ResponseEntity<ExceptionDto> exceptionHandler(Exception e, HttpServletResponse response) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ExceptionDto.builder()
-                        .message(String.format("%s", exception.getMessage()))
+                        .message(String.format("%s", e.getMessage()))
                         .statusCode(response.getStatus())
                         .build()
                 );
