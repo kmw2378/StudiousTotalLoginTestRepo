@@ -38,10 +38,9 @@ public class Member implements UserDetails {
     @Nullable
     private Long providerId;
 
-    @Column(updatable = false, unique = true, nullable = false)
-    private String email;
+    @Column(updatable = false, nullable = false)
+    private String email;   // 타입이 다르면 중복 가능
 
-    @Column(nullable = false)
     private String password;
 
     @ElementCollection(fetch = FetchType.EAGER)
