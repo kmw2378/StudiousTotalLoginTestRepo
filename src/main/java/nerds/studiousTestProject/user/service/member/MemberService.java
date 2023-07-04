@@ -253,8 +253,8 @@ public class MemberService {
      * @return 인코딩된 비밀번호
      */
     private String getEncodedPassword(SignUpRequest signUpRequest) {
-        String password = signUpRequest.getPassword();
-        return password != null ? passwordEncoder.encode(password) : null;
+        String password = signUpRequest.getPassword() == null ? UUID.randomUUID().toString() : signUpRequest.getPassword();
+        return passwordEncoder.encode(password);
     }
 
     private Member getMemberFromAccessToken(String accessToken) {
