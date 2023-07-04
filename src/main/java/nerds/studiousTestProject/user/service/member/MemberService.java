@@ -49,8 +49,7 @@ public class MemberService {
         MemberType type = MemberType.handle(signUpRequest.getType());
         validate(signUpRequest, type);
 
-        String password = signUpRequest.getPassword();
-        String encode = password != null ? passwordEncoder.encode(password) : null;
+        String encode = getEncodedPassword(signUpRequest);
         Member member = Member.builder()
                 .email(signUpRequest.getEmail())
                 .password(encode)
