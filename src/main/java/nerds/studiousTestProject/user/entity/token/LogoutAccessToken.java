@@ -16,15 +16,15 @@ import org.springframework.data.redis.core.TimeToLive;
 public class LogoutAccessToken {
     @Id
     private String token;
-    private String email;
+    private String username;
 
     @TimeToLive
     private Long expiration;
 
-    public static LogoutAccessToken from(String email, String accessToken, Long expirationTime) {
+    public static LogoutAccessToken from(String username, String accessToken, Long expirationTime) {
         return LogoutAccessToken.builder()
                 .token(accessToken)
-                .email(email)
+                .username(username)
                 .expiration(expirationTime / 1000)
                 .build();
     }
