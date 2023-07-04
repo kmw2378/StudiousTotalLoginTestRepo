@@ -2,14 +2,13 @@ package nerds.studiousTestProject.user.service.member;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import nerds.studiousTestProject.user.entity.member.MemberType;
 import nerds.studiousTestProject.user.dto.general.signup.SignUpRequest;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.entity.member.Member;
+import nerds.studiousTestProject.user.entity.member.MemberType;
 import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
-import nerds.studiousTestProject.user.exception.model.TokenCheckFailException;
 import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.repository.member.MemberRepository;
 import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
@@ -17,11 +16,13 @@ import nerds.studiousTestProject.user.service.token.RefreshTokenService;
 import nerds.studiousTestProject.user.util.JwtTokenProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -79,17 +80,12 @@ public class MemberService {
      */
     @Transactional
     public JwtTokenResponse issueToken(String email, String password) {
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
-
-        if (memberOptional.isEmpty()) {
+        List<Member> members = memberRepository.findByEmail(email);
+        if (members.isEmpty()) {
             throw new UserAuthException(ExceptionMessage.MISMATCH_EMAIL);
         }
 
-        Member member = memberOptional.get();
-        if (!passwordEncoder.matches(password, member.getPassword())) {
-            throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
-        }
-
+        Member member = members.stream().filter(m -> passwordEncoder.matches(password, m.getPassword())).findAny().orElseThrow(() -> new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD));
         if (!member.getType().equals(MemberType.DEFAULT)) {
             throw new UserAuthException(ExceptionMessage.NOT_DEFAULT_TYPE_USER);
         }
@@ -100,22 +96,22 @@ public class MemberService {
     /**
      * 현재 사용자의 토큰을 만료시고 블랙리스트에 저장하는 메소드
      * @param accessToken 사용자의 accessToken
-     * @return 현재 사용자의 이메일
+     * @return 현재 사용자의 이메일&타입
      */
     @Transactional
     public String expireToken(String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
 
-        String email = jwtTokenProvider.parseToken(resolvedAccessToken);
-        log.info("email = {}", email);
+        String username = jwtTokenProvider.parseToken(resolvedAccessToken);
+        log.info("username = {}", username);
 
         Long remainTime = jwtTokenProvider.getRemainTime(resolvedAccessToken);
-        refreshTokenService.deleteByEmail(email);
+        refreshTokenService.deleteByUsername(username);
 
-        logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(email, resolvedAccessToken, remainTime));
+        logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(username, resolvedAccessToken, remainTime));
 
         // LogoutDB 가 과부화될 가능성 있음
-        return email;
+        return username.split("&")[0];
     }
 
     @Transactional
@@ -141,19 +137,14 @@ public class MemberService {
      */
     @Transactional
     public String issueTemporaryPassword(String email, String phoneNumber) {
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
-        if (memberOptional.isEmpty()) {
+        List<Member> members = memberRepository.findByEmail(email);
+        if (members.isEmpty()) {
             throw new UserAuthException(ExceptionMessage.MISMATCH_EMAIL);
         }
 
-        Member member = memberOptional.get();
-
+        Member member = members.stream().filter(m -> m.getPassword().equals(phoneNumber)).findAny().orElseThrow(() -> new UserAuthException(ExceptionMessage.MISMATCH_PHONE_NUMBER));
         if (!member.getType().equals(MemberType.DEFAULT)) {
             throw new UserAuthException(ExceptionMessage.NOT_DEFAULT_TYPE_USER);
-        }
-
-        if (member.getPhoneNumber().equals(phoneNumber)) {
-            throw new UserAuthException(ExceptionMessage.MISMATCH_PHONE_NUMBER);
         }
 
         String temporaryPassword = UUID.randomUUID().toString().substring(0, 8);
@@ -206,13 +197,15 @@ public class MemberService {
             throw new UserAuthException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
         }
 
-        String currentEmail = authentication.getName();
-        log.info("currentEmail = {}", currentEmail);
-        RefreshToken redisRefreshToken = refreshTokenService.findByEmail(currentEmail);
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String username = userDetails.getUsername();
+        log.info("username = {}", username);
+
+        RefreshToken redisRefreshToken = refreshTokenService.findByUsername(username);
         if (!refreshToken.equals(redisRefreshToken.getRefreshToken())) {
             log.info("refreshToken = {}", refreshToken);
             log.info("redisRefreshToken = {}", redisRefreshToken.getRefreshToken());
-            throw new TokenCheckFailException(ExceptionMessage.MISMATCH_TOKEN);
+            throw new UserAuthException(ExceptionMessage.MISMATCH_TOKEN);
         }
 
 //        Authorization 사용하여 패스워드 가져올 때 PROTECTED 되있으므로 DB에서 사용자 내역을 가져온다.
@@ -221,7 +214,7 @@ public class MemberService {
 //        Member member = memberRepository.findById(currentEmail).get();
 //        String password = passwordEncoder.encode(member.getPassword());
 
-        String reissueAccessToken = jwtTokenProvider.reissueToken(refreshToken, authentication);
+        String reissueAccessToken = jwtTokenProvider.reissueToken(refreshToken, username, authentication);
         return JwtTokenResponse.from(reissueAccessToken);
     }
 
@@ -235,13 +228,12 @@ public class MemberService {
             throw new UserAuthException(ExceptionMessage.NOT_EXIST_PROVIDER_ID);
         }
 
-        if ((providerId != null && memberRepository.existsByProviderId(providerId))) {
+        if ((providerId != null && memberRepository.existsByProviderIdAndType(providerId, type))) {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
 
         String email = signUpRequest.getEmail();
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
-        if (memberOptional.isPresent() && memberOptional.get().getType().equals(type)) {
+        if (memberRepository.existsByEmailAndType(email, type)) {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
         }
 
@@ -254,12 +246,11 @@ public class MemberService {
     private Member getMemberFromAccessToken(String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
 
-        String email = jwtTokenProvider.parseToken(resolvedAccessToken);
-        Optional<Member> memberOptional = memberRepository.findByEmail(email);
-        if (memberOptional.isEmpty()) {
-            throw new UserAuthException(ExceptionMessage.MISMATCH_USERNAME_TOKEN);
-        }
+        String[] split = jwtTokenProvider.parseToken(resolvedAccessToken).split("&");
+        String email = split[0];
+        MemberType type = MemberType.valueOf(split[1]);
 
-        return memberOptional.get();
+        return memberRepository.findByEmailAndType(email, type).
+                orElseThrow(() -> new UserAuthException(ExceptionMessage.MISMATCH_USERNAME_TOKEN));
     }
 }
