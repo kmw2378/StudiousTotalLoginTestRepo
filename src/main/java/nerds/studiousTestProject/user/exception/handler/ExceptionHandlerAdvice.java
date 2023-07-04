@@ -1,23 +1,35 @@
 package nerds.studiousTestProject.user.exception.handler;
 
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import nerds.studiousTestProject.user.exception.dto.ExceptionDto;
+import nerds.studiousTestProject.user.exception.model.OAuth2Exception;
+import nerds.studiousTestProject.user.exception.model.TokenCheckFailException;
+import nerds.studiousTestProject.user.exception.model.TokenNotFoundException;
+import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @RestControllerAdvice
 @Slf4j
 public class ExceptionHandlerAdvice {
-    @ExceptionHandler(value = Exception.class)
-    public ResponseEntity<ExceptionDto> exceptionHandler(Exception e, HttpServletResponse response) {
+    @ExceptionHandler(value = {UserAuthException.class, OAuth2Exception.class, TokenNotFoundException.class, TokenCheckFailException.class})
+    public ResponseEntity<ExceptionDto> userExceptionHandler(Exception e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ExceptionDto.builder()
-                        .message(String.format("%s", e.getMessage()))
-                        .statusCode(response.getStatus())
+                        .message(e.getMessage())
+                        .statusCode(HttpStatus.BAD_REQUEST.value())
                         .build()
                 );
+    }
+
+    @ExceptionHandler(value = WebClientResponseException.class)
+    public ResponseEntity<?> webClientExceptionHandler(WebClientResponseException e) {
+        log.error("msg = {}", e.getMessage());
+        log.error("status = {}", e.getStatusText());
+        log.error("body = {} ", e.getResponseBodyAsString());
+        return new ResponseEntity<>("웹 API 호출 예외 발생. 자세한 건 서버 로그를 참고하세요.", HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
