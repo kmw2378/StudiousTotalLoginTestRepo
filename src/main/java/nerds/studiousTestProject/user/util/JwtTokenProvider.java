@@ -74,33 +74,31 @@ public class JwtTokenProvider {
      * @return UserDetails 객체를 통해 만든 Authentication
      */
     public Authentication getAuthentication(String accessToken) {
-        String email = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getSubject();
-        if (email == null) {
+        String username = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getSubject();
+        if (username == null) {
             throw new TokenCheckFailException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
         }
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
 
-    public String reissueToken(String refreshToken, Authentication authentication) {
+    public String reissueToken(String refreshToken, String username, Authentication authentication) {
         if (lessThanReissueExpirationTimesLeft(refreshToken)) {
             throw new UserAuthException(ExceptionMessage.NOT_EXPIRED_REFRESH_TOKEN);
         }
 
-        String email = authentication.getName();
-        RefreshToken newRedisToken = refreshTokenService.save(email, createRefreshToken());
+        RefreshToken newRedisToken = refreshTokenService.save(username, createRefreshToken());
         setRefreshTokenAtCookie(newRedisToken);
-        return createAccessToken(email, authentication.getAuthorities());
+        return createAccessToken(username, authentication.getAuthorities());
     }
 
     private String createAccessToken(Member member) {
-        return createAccessToken(member.getEmail(), member.getAuthorities());
+        return createAccessToken(member.getUsername(), member.getAuthorities());
     }
 
-    private String createAccessToken(String email, Collection<? extends GrantedAuthority> authorities) {
-        Claims claims = Jwts.claims().setSubject(email);
+    private String createAccessToken(String username, Collection<? extends GrantedAuthority> authorities) {
+        Claims claims = Jwts.claims().setSubject(username);
         claims.put(JwtTokenUtil.CLAIMS_AUTH, authorities);
 
         Date now = new Date();
