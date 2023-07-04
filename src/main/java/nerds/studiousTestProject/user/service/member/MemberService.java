@@ -50,7 +50,7 @@ public class MemberService {
         validate(signUpRequest, type);
 
         String password = signUpRequest.getPassword();
-        String encode = passwordEncoder.encode(password);
+        String encode = password != null ? passwordEncoder.encode(password) : null;
         Member member = Member.builder()
                 .email(signUpRequest.getEmail())
                 .password(encode)
@@ -218,8 +218,8 @@ public class MemberService {
         return JwtTokenResponse.from(reissueAccessToken);
     }
 
-    public Optional<Member> findByProviderId(Long providerId) {
-        return memberRepository.findByProviderId(providerId);
+    public Optional<Member> findByProviderIdAndType(Long providerId, MemberType type) {
+        return memberRepository.findByProviderIdAndType(providerId, type);
     }
 
     private void validate(SignUpRequest signUpRequest, MemberType type) {
@@ -230,6 +230,10 @@ public class MemberService {
 
         if ((providerId != null && memberRepository.existsByProviderIdAndType(providerId, type))) {
             throw new UserAuthException(ExceptionMessage.ALREADY_EXIST_USER);
+        }
+
+        if (signUpRequest.getPassword() == null && type.equals(MemberType.DEFAULT)) {
+            throw new UserAuthException(ExceptionMessage.NOT_EXIST_PASSWORD);
         }
 
         String email = signUpRequest.getEmail();
