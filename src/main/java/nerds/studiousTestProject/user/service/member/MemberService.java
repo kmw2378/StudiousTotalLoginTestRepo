@@ -246,6 +246,11 @@ public class MemberService {
         }
     }
 
+    private String getEncodedPassword(SignUpRequest signUpRequest) {
+        String password = signUpRequest.getPassword();
+        return password != null ? passwordEncoder.encode(password) : null;
+    }
+
     private Member getMemberFromAccessToken(String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
 
