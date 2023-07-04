@@ -14,22 +14,22 @@ import org.springframework.stereotype.Service;
 public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
 
-    public RefreshToken save(String email, String refreshToken) {
+    public RefreshToken save(String username, String refreshToken) {
         return refreshTokenRepository.save(
                 RefreshToken.from(
-                        email,
+                        username,
                         refreshToken,
                         DateConverter.toLocalDateTime(JwtTokenUtil.REFRESH_TOKEN_EXPIRE_TIME)
                 )
         );
     }
 
-    public RefreshToken findByEmail(String email) {
-        return refreshTokenRepository.findById(email)
+    public RefreshToken findByUsername(String username) {
+        return refreshTokenRepository.findById(username)
                 .orElseThrow(() -> new TokenNotFoundException(ExceptionMessage.TOKEN_NOT_FOUND));
     }
 
-    public void deleteByEmail(String email) {
-        refreshTokenRepository.deleteById(email);
+    public void deleteByUsername(String username) {
+        refreshTokenRepository.deleteById(username);
     }
 }
