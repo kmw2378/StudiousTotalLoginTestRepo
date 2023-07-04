@@ -17,6 +17,7 @@ public enum ExceptionMessage {
     MISMATCH_TOKEN("토큰명이 일치하지 않습니다."),
     NOT_SUPPORTED_JWT("JWT 토큰이 지원하지 않습니다."),
     NOT_EXPIRED_REFRESH_TOKEN("Refresh Token이 만료되지 않았습니다."),
+    NOT_FOUND_SOCIAL_INFO("알맞는 소셜 서비스를 찾을 수 없습니다."),
     NOT_DEFAULT_TYPE_USER("소셜 연동 계정입니다. 소셜 로그인을 사용하여 로그인해주세요."),
     NOT_EXIST_PROVIDER_ID("소셜 회원가입에서 providerId 값이 존재하지 않습니다.");
 
