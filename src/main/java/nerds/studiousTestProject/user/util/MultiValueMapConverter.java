@@ -17,8 +17,9 @@ import java.util.Map;
 @Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public abstract class MultiValueMapConverter {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public static MultiValueMap<String, String> convert(ObjectMapper objectMapper, Object dto) {
+    public static MultiValueMap<String, String> convert(Object dto) {
         try {
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
             Map<String, String> map = objectMapper.convertValue(dto, new TypeReference<>() {});
