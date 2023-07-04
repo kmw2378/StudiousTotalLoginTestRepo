@@ -144,7 +144,8 @@ public class OAuth2Service {
     private OAuth2AuthenticateResponse getOAuth2AuthenticateResponse(OAuth2UserInfo oAuth2UserInfo) {
         // providerId를 통해 MemberRepository 확인
         Long providerId = oAuth2UserInfo.getProviderId();
-        Optional<Member> memberOptional = memberService.findByProviderId(providerId);
+        MemberType type = MemberType.valueOf(oAuth2UserInfo.getProvider());
+        Optional<Member> memberOptional = memberService.findByProviderIdAndType(providerId, type);
 
         boolean exist = memberOptional.isPresent(); // 기존 회원인지 여부
         JwtTokenResponse jwtTokenResponse = null;
@@ -157,10 +158,11 @@ public class OAuth2Service {
         } else {
             // 신규 회원인 경우는 providerId, 소셜 타입, 이메일 정보를 저장
             // 추후, 이 값은 회원 가입 페이지로 넘어갈 때 사용된다.
+
             userInfo = OAuth2AuthenticateResponse.UserInfo.builder()
                     .providerId(providerId)
                     .email(oAuth2UserInfo.getEmail())
-                    .type(MemberType.valueOf(oAuth2UserInfo.getProvider()))
+                    .type(type)
                     .build();
         }
 
