@@ -246,6 +246,12 @@ public class MemberService {
         }
     }
 
+    /**
+     * 인코딩된 비밀번호를 발급해주는 메소드
+     * (만약, 소셜 로그인인 경우 UUID를 통한 랜덤 문자열을 인코딩하여 반환)
+     * @param signUpRequest 로그인 정보
+     * @return 인코딩된 비밀번호
+     */
     private String getEncodedPassword(SignUpRequest signUpRequest) {
         String password = signUpRequest.getPassword();
         return password != null ? passwordEncoder.encode(password) : null;
