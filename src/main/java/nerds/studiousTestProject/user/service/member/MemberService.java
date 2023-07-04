@@ -110,7 +110,7 @@ public class MemberService {
         logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(username, resolvedAccessToken, remainTime));
 
         // LogoutDB 가 과부화될 가능성 있음
-        return username.split("&")[0];
+        return username;
     }
 
     @Transactional
