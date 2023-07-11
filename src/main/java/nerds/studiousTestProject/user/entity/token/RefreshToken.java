@@ -7,27 +7,30 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.TimeToLive;
 
 import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-@RedisHash("refreshToken")
+@RedisHash("refresh_token")
 @Builder
 public class RefreshToken {
     @Id
-    private String email;
+    @Column(name = "member_id", unique = true)
+    private Long memberId;
 
-    @Column(name = "refresh_token", unique = true)
-    private String refreshToken;
+    @Column(unique = true)
+    private String token;
 
-    private LocalDateTime expiration;
+    @TimeToLive
+    private Long expiration;
 
-    public static RefreshToken from(String email, String refreshToken, LocalDateTime expirationTime) {
+    public static RefreshToken from(Long memberId, String token, Long expirationTime) {
         return RefreshToken.builder()
-                .email(email)
-                .refreshToken(refreshToken)
+                .memberId(memberId)
+                .token(token)
                 .expiration(expirationTime)
                 .build();
     }
