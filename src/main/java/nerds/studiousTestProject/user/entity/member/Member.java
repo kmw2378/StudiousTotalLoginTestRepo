@@ -83,7 +83,7 @@ public class Member implements UserDetails {
 
     @Override
     public String getUsername() {
-        return email + "&" + type.name();
+        return String.valueOf(id);
     }
 
     @Override
