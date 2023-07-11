@@ -16,7 +16,6 @@ import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.entity.member.Member;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
-import nerds.studiousTestProject.user.exception.model.TokenCheckFailException;
 import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import nerds.studiousTestProject.user.service.token.LogoutAccessTokenService;
 import nerds.studiousTestProject.user.service.token.RefreshTokenService;
@@ -59,8 +58,8 @@ public class JwtTokenProvider {
 
     public JwtTokenResponse generateToken(Member member) {
         // 1. 토큰 생성
-        String accessToken = createAccessToken(member);
-        RefreshToken refreshToken = refreshTokenService.save(member.getEmail(), createRefreshToken());
+        String accessToken = createAccessToken(member.getId(), member.getAuthorities());
+        RefreshToken refreshToken = refreshTokenService.save(member.getId(), createRefreshToken());
 
         // 2. 쿠키에 Refresh 토큰 등록
         setRefreshTokenAtCookie(refreshToken);
@@ -70,43 +69,31 @@ public class JwtTokenProvider {
     }
 
     /**
-     * JWT 토큰을 복호하하여 토큰에 들어있는 정보를 꺼내는 메소드
+     * JWT 토큰을 복호화하여 토큰에 들어있는 정보를 꺼내는 메소드
      * @return UserDetails 객체를 통해 만든 Authentication
      */
     public Authentication getAuthentication(String accessToken) {
         String username = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(accessToken).getBody().getSubject();
-        if (username == null) {
-            throw new TokenCheckFailException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
+        UserDetails userDetails;
+        try {
+             userDetails = userDetailsService.loadUserByUsername(username);
+        } catch (Exception e) {
+            throw new UserAuthException(ExceptionMessage.INVALID_TOKEN);
         }
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
 
-    public String reissueToken(String refreshToken, String username, Authentication authentication) {
-        if (lessThanReissueExpirationTimesLeft(refreshToken)) {
-            throw new UserAuthException(ExceptionMessage.NOT_EXPIRED_REFRESH_TOKEN);
-        }
-
-        RefreshToken newRedisToken = refreshTokenService.save(username, createRefreshToken());
-        setRefreshTokenAtCookie(newRedisToken);
-        return createAccessToken(username, authentication.getAuthorities());
-    }
-
-    private String createAccessToken(Member member) {
-        return createAccessToken(member.getUsername(), member.getAuthorities());
-    }
-
-    private String createAccessToken(String username, Collection<? extends GrantedAuthority> authorities) {
-        Claims claims = Jwts.claims().setSubject(username);
-        claims.put(JwtTokenUtil.CLAIMS_AUTH, authorities);
-
+    private String createAccessToken(Long memberId, Collection<? extends GrantedAuthority> authorities) {
         Date now = new Date();
 
         return Jwts.builder()
-                .setClaims(claims)
-                .setIssuedAt(now)    // 토큰 발행 시간
-                .setExpiration(new Date(now.getTime() + JwtTokenUtil.ACCESS_TOKEN_EXPIRE_TIME)) // 만료시간 : 현재 + 1시간
+                .setHeaderParam(JwtTokenUtil.ALG_KEY, SignatureAlgorithm.HS256.getValue())
+                .setHeaderParam(JwtTokenUtil.TYPE_KEY, JwtTokenUtil.TYPE_VALUE)
+                .setSubject(String.valueOf(memberId))
+                .setIssuedAt(now)   // 토큰 발행 시간
+                .setExpiration(new Date(now.getTime() + JwtTokenUtil.ACCESS_TOKEN_EXPIRE_TIME))  // 만료시간 : 현재 + 1시간
+                .claim(JwtTokenUtil.AUTHORITIES_KEY, authorities)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -115,14 +102,12 @@ public class JwtTokenProvider {
         Date now = new Date();
 
         return Jwts.builder()
+                .setHeaderParam(JwtTokenUtil.ALG_KEY, SignatureAlgorithm.HS256.getValue())
+                .setHeaderParam(JwtTokenUtil.TYPE_KEY, JwtTokenUtil.TYPE_VALUE)
                 .setIssuedAt(now)
                 .setExpiration(new Date(now.getTime() + JwtTokenUtil.REFRESH_TOKEN_EXPIRE_TIME))    // 만료 시간 : 현재 + 6시간
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
-    }
-
-    private boolean lessThanReissueExpirationTimesLeft(String refreshToken) {
-        return getRemainTime(refreshToken) < JwtTokenUtil.REISSUE_EXPIRE_TIME;
     }
 
     public String resolveToken(String token) {
@@ -140,20 +125,21 @@ public class JwtTokenProvider {
      */
     public boolean validateToken(String token) {
         if (checkLogout(token)) {
-            log.info("로그아웃 된 계정입니다.");
+            log.info("msg = {}", ExceptionMessage.LOGOUT_USER.message());
             return false;
         }
+
         try {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
             return true;
         } catch (SecurityException | MalformedJwtException e) {
             log.info("msg = {}", ExceptionMessage.INVALID_TOKEN.message());
         } catch (ExpiredJwtException e) {
-            log.info("msg = {}", ExceptionMessage.TOKEN_VALID_TIME_EXPIRED);
+            log.info("msg = {}", ExceptionMessage.TOKEN_VALID_TIME_EXPIRED.message());
         } catch (UnsupportedJwtException e) {
-            log.info("msg = {}", ExceptionMessage.NOT_SUPPORTED_JWT);
+            log.info("msg = {}", ExceptionMessage.NOT_SUPPORTED_JWT.message());
         } catch (IllegalArgumentException e) {
-            log.info("msg = {}", ExceptionMessage.TOKEN_NOT_FOUND);
+            log.info("msg = {}", ExceptionMessage.TOKEN_NOT_FOUND.message());
         }
 
         return false;
@@ -172,15 +158,20 @@ public class JwtTokenProvider {
         }
     }
 
-    public String parseToken(String accessToken) {
-        return parseClaims(accessToken).getSubject();
+    /**
+     * 토큰의 payload 에서 subject(member pk)를 가져오는 메소드
+     * @param accessToken 엑세스 토큰 값
+     * @return 토큰에 저장되어 있는 회원 pk
+     */
+    public Long parseToken(String accessToken) {
+        return Long.parseLong(parseClaims(accessToken).getSubject());
     }
 
     public void setRefreshTokenAtCookie(RefreshToken refreshToken) {
-        Cookie cookie = new Cookie(JwtTokenUtil.TOKEN_TYPE_REFRESH, refreshToken.getRefreshToken());
+        Cookie cookie = new Cookie(JwtTokenUtil.TOKEN_TYPE_REFRESH, refreshToken.getToken());
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
-        cookie.setMaxAge(refreshToken.getExpiration().getSecond());
+        cookie.setMaxAge(Math.toIntExact(refreshToken.getExpiration()));
 
         HttpServletResponse response = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getResponse();
         response.addCookie(cookie);
