@@ -10,21 +10,19 @@ import org.springframework.data.redis.core.TimeToLive;
 
 @Getter
 @Builder
-@RedisHash("logoutAccessToken")
+@RedisHash("logout_access_token")
 @NoArgsConstructor
 @AllArgsConstructor
 public class LogoutAccessToken {
     @Id
     private String token;
-    private String username;
 
     @TimeToLive
     private Long expiration;
 
-    public static LogoutAccessToken from(String username, String accessToken, Long expirationTime) {
+    public static LogoutAccessToken from(String token, Long expirationTime) {
         return LogoutAccessToken.builder()
-                .token(accessToken)
-                .username(username)
+                .token(token)
                 .expiration(expirationTime / 1000)
                 .build();
     }
