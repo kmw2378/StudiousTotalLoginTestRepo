@@ -6,6 +6,7 @@ public enum ExceptionMessage {
     MISMATCH_PHONE_NUMBER("전화번호가 일치하지 않습니다."),
     NOT_EXIST_PASSWORD("비밀번호가 존재하지 않습니다. 일반회원인 경우 비밀번호는 필수입니다."),
     ALREADY_EXIST_USER("이미 존재하는 회원입니다."),
+    EXPIRE_USER("탈퇴된 계정입니다."),
     PHONE_NUMBER_ALREADY_EXIST("해당 전화번호로 가입한 계정이 이미 존재합니다."),
     LOGOUT_USER("로그아웃된 회원입니다."),
     MISMATCH_USERNAME_TOKEN("이메일과 토큰값이 일치하지 않습니다."),
