@@ -1,9 +1,11 @@
 package nerds.studiousTestProject.user.dto.general.login;
 
+import lombok.Builder;
 import lombok.Data;
 
 @Data
-public class MemberLoginRequest {
+@Builder
+public class LoginRequest {
     private String email;
     private String password;
 }
