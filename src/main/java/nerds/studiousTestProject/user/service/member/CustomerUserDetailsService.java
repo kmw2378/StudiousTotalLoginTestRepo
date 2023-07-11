@@ -17,12 +17,15 @@ import org.springframework.stereotype.Service;
 public class CustomerUserDetailsService implements UserDetailsService {
     private final MemberRepository memberRepository;
 
+    /**
+     * memberId를 사용하여 UserDetailsService 구현
+     * @param username the username identifying the user whose data is required.
+     * @return 현재 사용자의 정보
+     * @throws UsernameNotFoundException
+     */
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        String[] split = username.split("&");
-        String email = split[0];
-        MemberType type = MemberType.valueOf(split[1]);
-        return memberRepository.findByEmailAndType(email, type)
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException, NumberFormatException {
+        return memberRepository.findById(Long.valueOf(username))
                 .map(this::createUserDetails)
                 .orElseThrow(() -> new UsernameNotFoundException(ExceptionMessage.USER_NOT_FOUND.message()));
     }
