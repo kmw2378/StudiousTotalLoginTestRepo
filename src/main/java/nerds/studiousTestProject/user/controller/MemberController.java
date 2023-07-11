@@ -2,14 +2,18 @@ package nerds.studiousTestProject.user.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import nerds.studiousTestProject.user.dto.general.login.MemberLoginRequest;
+import nerds.studiousTestProject.user.dto.general.find.FindEmailRequest;
+import nerds.studiousTestProject.user.dto.general.find.FindEmailResponse;
+import nerds.studiousTestProject.user.dto.general.find.FindPasswordRequest;
+import nerds.studiousTestProject.user.dto.general.find.FindPasswordResponse;
+import nerds.studiousTestProject.user.dto.general.login.LoginRequest;
+import nerds.studiousTestProject.user.dto.general.logout.LogoutResponse;
 import nerds.studiousTestProject.user.dto.general.signup.SignUpRequest;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
 import nerds.studiousTestProject.user.service.member.MemberService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -30,43 +34,30 @@ public class MemberController {
     }
 
     @PostMapping("/login")
-    public JwtTokenResponse login(@RequestBody MemberLoginRequest memberLoginRequest) {
-        return memberService.issueToken(memberLoginRequest.getEmail(), memberLoginRequest.getPassword());
+    public JwtTokenResponse login(@RequestBody LoginRequest loginRequest) {
+        return memberService.issueToken(loginRequest.getEmail(), loginRequest.getPassword());
     }
 
     @GetMapping("/email")
-    public String findEmail(@RequestBody String phoneNumber) {
-        return memberService.findEmailFromPhoneNumber(phoneNumber);
+    public FindEmailResponse findEmail(@RequestBody FindEmailRequest findEmailRequest) {
+        return memberService.findEmailFromPhoneNumber(findEmailRequest);
     }
 
     @PostMapping("/password")
-    public String findPassword(@RequestBody String email, @RequestBody String phoneNumber) {
-        return memberService.issueTemporaryPassword(email, phoneNumber);
-    }
-
-    @PatchMapping("/nickname")
-    public void patchNickname(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @RequestBody String newNickname) {
-        memberService.replaceNickname(accessToken, newNickname);
-    }
-
-    @PatchMapping("/password")
-    public void patchPassword(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @RequestBody String oldPassword, @RequestBody String newPassword) {
-        memberService.replacePassword(accessToken, oldPassword, newPassword);
+    public FindPasswordResponse findPassword(@RequestBody FindPasswordRequest findPasswordRequest) {
+        log.info("email = {}", findPasswordRequest.getEmail());
+        log.info("phoneNumber = {}", findPasswordRequest.getPhoneNumber());
+        return memberService.issueTemporaryPassword(findPasswordRequest);
     }
 
     @PostMapping("/logout")
-    public String logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken) {
+    public LogoutResponse logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken) {
         return memberService.expireToken(accessToken);
     }
 
-    @PostMapping("/withdraw")
-    public void withdraw(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @RequestBody String password) {
-        memberService.deactivate(accessToken, password);
-    }
-
     @PostMapping("/reissue")
-    public JwtTokenResponse reissue(@CookieValue("refresh_token") String refreshToken) {
-        return memberService.reissueToken(refreshToken);
+    public JwtTokenResponse reissue(@RequestHeader(HttpHeaders.AUTHORIZATION) String accessToken, @CookieValue("refresh_token") String refreshToken) {
+        return memberService.reissueToken(accessToken, refreshToken);
     }
 
     /**
