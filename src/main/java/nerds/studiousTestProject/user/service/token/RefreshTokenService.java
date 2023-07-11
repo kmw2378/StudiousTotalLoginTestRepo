@@ -1,5 +1,6 @@
 package nerds.studiousTestProject.user.service.token;
 
+import io.jsonwebtoken.Jwt;
 import lombok.RequiredArgsConstructor;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
@@ -14,22 +15,22 @@ import org.springframework.stereotype.Service;
 public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
 
-    public RefreshToken save(String username, String refreshToken) {
+    public RefreshToken save(Long memberId, String refreshToken) {
         return refreshTokenRepository.save(
                 RefreshToken.from(
-                        username,
+                        memberId,
                         refreshToken,
-                        DateConverter.toLocalDateTime(JwtTokenUtil.REFRESH_TOKEN_EXPIRE_TIME)
+                        JwtTokenUtil.REFRESH_TOKEN_EXPIRE_TIME
                 )
         );
     }
 
-    public RefreshToken findByUsername(String username) {
-        return refreshTokenRepository.findById(username)
+    public RefreshToken findByMemberId(Long memberId) {
+        return refreshTokenRepository.findById(memberId)
                 .orElseThrow(() -> new TokenNotFoundException(ExceptionMessage.TOKEN_NOT_FOUND));
     }
 
-    public void deleteByUsername(String username) {
-        refreshTokenRepository.deleteById(username);
+    public void deleteByMemberId(Long memberId) {
+        refreshTokenRepository.deleteById(memberId);
     }
 }
