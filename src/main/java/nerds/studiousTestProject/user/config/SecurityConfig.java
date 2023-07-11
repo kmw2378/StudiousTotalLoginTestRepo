@@ -38,9 +38,7 @@ public class SecurityConfig {
                 .requestMatchers(CorsUtils::isPreFlightRequest).permitAll() // Preflight request에 대해, 인증을 하지 않고 모든 요청을 허용
                 .requestMatchers("/members/signup", "/members/login",  "/oauth/authenticate/**").permitAll()    // 일반, 소셜 회원가입 및 로그인
                 .requestMatchers("/members/logout", "/members/reissue").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")  // 로그아웃, 토큰 재발급
-                .requestMatchers(HttpMethod.PATCH, "/members/password").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")  // 비밀번호 수정
-                .requestMatchers(HttpMethod.PATCH, "/members/nickname").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")  // 닉네임 수정
-                .requestMatchers(HttpMethod.POST, "/members/withdraw").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")   // 회원 탈퇴
+                .requestMatchers("/mypage/**").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN") // 닉네임, 비밀번호 수정 및 회원 탈퇴
                 .requestMatchers(HttpMethod.GET, "/members/email").permitAll()      // 이메일 찾기
                 .requestMatchers(HttpMethod.POST, "/members/password").permitAll()  // 비밀번호 찾기
                 .requestMatchers("/members/test").hasRole("USER")
@@ -69,7 +67,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
 
     @Bean
     public WebClient webClient() {
