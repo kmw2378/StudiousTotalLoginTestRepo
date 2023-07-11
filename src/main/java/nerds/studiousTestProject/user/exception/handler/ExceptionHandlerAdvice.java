@@ -8,6 +8,7 @@ import nerds.studiousTestProject.user.exception.model.TokenNotFoundException;
 import nerds.studiousTestProject.user.exception.model.UserAuthException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -21,6 +22,16 @@ public class ExceptionHandlerAdvice {
                 .body(ExceptionDto.builder()
                         .message(e.getMessage())
                         .statusCode(HttpStatus.BAD_REQUEST.value())
+                        .build()
+                );
+    }
+
+    @ExceptionHandler(value = HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ExceptionDto> methodNotSupportedExceptionHandler(Exception e) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ExceptionDto.builder()
+                        .message(e.getMessage())
+                        .statusCode(HttpStatus.METHOD_NOT_ALLOWED.value())
                         .build()
                 );
     }
