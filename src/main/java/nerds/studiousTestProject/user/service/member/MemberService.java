@@ -2,8 +2,16 @@ package nerds.studiousTestProject.user.service.member;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import nerds.studiousTestProject.user.dto.general.find.FindEmailRequest;
+import nerds.studiousTestProject.user.dto.general.find.FindEmailResponse;
+import nerds.studiousTestProject.user.dto.general.find.FindPasswordRequest;
+import nerds.studiousTestProject.user.dto.general.logout.LogoutResponse;
+import nerds.studiousTestProject.user.dto.general.find.FindPasswordResponse;
+import nerds.studiousTestProject.user.dto.general.patch.PatchNicknameRequest;
+import nerds.studiousTestProject.user.dto.general.patch.PatchPasswordRequest;
 import nerds.studiousTestProject.user.dto.general.signup.SignUpRequest;
 import nerds.studiousTestProject.user.dto.general.token.JwtTokenResponse;
+import nerds.studiousTestProject.user.dto.general.withdraw.WithdrawRequest;
 import nerds.studiousTestProject.user.entity.member.Member;
 import nerds.studiousTestProject.user.entity.member.MemberType;
 import nerds.studiousTestProject.user.entity.token.LogoutAccessToken;
@@ -89,43 +97,47 @@ public class MemberService {
             throw new UserAuthException(ExceptionMessage.NOT_DEFAULT_TYPE_USER);
         }
 
+        if (!member.isUsable()) {
+            throw new UserAuthException(ExceptionMessage.EXPIRE_USER);
+        }
+
         return jwtTokenProvider.generateToken(member);
     }
 
     /**
      * 현재 사용자의 토큰을 만료시고 블랙리스트에 저장하는 메소드
      * @param accessToken 사용자의 accessToken
-     * @return 현재 사용자의 이메일&타입
+     * @return 현재 사용자의 PK
      */
     @Transactional
-    public String expireToken(String accessToken) {
+    public LogoutResponse expireToken(String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
-
-        String username = jwtTokenProvider.parseToken(resolvedAccessToken);
-        log.info("username = {}", username);
-
+        Long memberId = jwtTokenProvider.parseToken(resolvedAccessToken);
         Long remainTime = jwtTokenProvider.getRemainTime(resolvedAccessToken);
-        refreshTokenService.deleteByUsername(username);
 
-        logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(username, resolvedAccessToken, remainTime));
+        refreshTokenService.deleteByMemberId(memberId);
+        logoutAccessTokenService.saveLogoutAccessToken(LogoutAccessToken.from(resolvedAccessToken, remainTime));
 
-        // LogoutDB 가 과부화될 가능성 있음
-        return username;
+        // LogoutDB 가 과부화될 가능성 있음 => 토큰 유효기간이 만료되면 자동 삭제되므로 염려할 필요 X
+        return LogoutResponse.builder()
+                .memberId(memberId)
+                .build();
     }
 
     @Transactional
-    public String findEmailFromPhoneNumber(String phoneNumber) {
-        Optional<Member> memberOptional = memberRepository.findByPhoneNumber(phoneNumber);
-        if (memberOptional.isEmpty()) {
-            throw new UserAuthException(ExceptionMessage.USER_NOT_FOUND);
-        }
+    public FindEmailResponse findEmailFromPhoneNumber(FindEmailRequest findEmailRequest) {
+        String phoneNumber = findEmailRequest.getPhoneNumber();
 
-        Member member = memberOptional.get();
+        Member member = memberRepository.findByPhoneNumber(phoneNumber).
+                orElseThrow(() -> new UserAuthException(ExceptionMessage.USER_NOT_FOUND));
+
         if (!member.getType().equals(MemberType.DEFAULT)) {
             throw new UserAuthException(ExceptionMessage.NOT_DEFAULT_TYPE_USER);
         }
 
-        return member.getEmail();
+        return FindEmailResponse.builder()
+                .email(member.getEmail())
+                .build();
     }
 
     /**
@@ -135,13 +147,17 @@ public class MemberService {
      * @return 발급된 임시 비밀번호
      */
     @Transactional
-    public String issueTemporaryPassword(String email, String phoneNumber) {
+    public FindPasswordResponse issueTemporaryPassword(FindPasswordRequest findPasswordRequest) {
+        String email = findPasswordRequest.getEmail();
+        String phoneNumber = findPasswordRequest.getPhoneNumber();
+
         List<Member> members = memberRepository.findByEmail(email);
         if (members.isEmpty()) {
             throw new UserAuthException(ExceptionMessage.MISMATCH_EMAIL);
         }
 
-        Member member = members.stream().filter(m -> m.getPassword().equals(phoneNumber)).findAny().orElseThrow(() -> new UserAuthException(ExceptionMessage.MISMATCH_PHONE_NUMBER));
+        Member member = members.stream().filter(m -> m.getPhoneNumber().equals(phoneNumber)).findAny()
+                .orElseThrow(() -> new UserAuthException(ExceptionMessage.MISMATCH_PHONE_NUMBER));
         if (!member.getType().equals(MemberType.DEFAULT)) {
             throw new UserAuthException(ExceptionMessage.NOT_DEFAULT_TYPE_USER);
         }
@@ -150,11 +166,16 @@ public class MemberService {
         String encode = passwordEncoder.encode(temporaryPassword);
         member.updatePassword(encode);
 
-        return temporaryPassword;
+        return FindPasswordResponse.builder()
+                .tempPassword(temporaryPassword)
+                .build();
     }
 
     @Transactional
-    public void replacePassword(String accessToken, String oldPassword, String newPassword) {
+    public void replacePassword(String accessToken, PatchPasswordRequest patchPasswordRequest) {
+        String oldPassword = patchPasswordRequest.getOldPassword();
+        String newPassword = patchPasswordRequest.getNewPassword();
+
         Member member = getMemberFromAccessToken(accessToken);
         if (!passwordEncoder.matches(oldPassword, member.getPassword())) {
             throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
@@ -166,13 +187,15 @@ public class MemberService {
     }
 
     @Transactional
-    public void replaceNickname(String accessToken, String nickname) {
+    public void replaceNickname(String accessToken, PatchNicknameRequest patchNicknameRequest) {
         Member member = getMemberFromAccessToken(accessToken);
-        member.updateNickname(nickname);
+        member.updateNickname(patchNicknameRequest.getNewNickname());
     }
 
     @Transactional
-    public void deactivate(String accessToken, String password) {
+    public void deactivate(String accessToken, WithdrawRequest withdrawRequest) {
+        String password = withdrawRequest.getPassword();
+
         Member member = getMemberFromAccessToken(accessToken);
         if (!passwordEncoder.matches(password, member.getPassword())) {
             throw new UserAuthException(ExceptionMessage.MISMATCH_PASSWORD);
@@ -185,25 +208,22 @@ public class MemberService {
     /**
      * 사용자가 만료된 accessToken 과 만료되지 않은 refreshToken을 넘길 때 새로운 accessToken을 만들어 주는 메소드
      * RefreshToken의 유효기간을 확인 후, 토큰을 재발급해주는 메소드
+     *
+     * @param accessToken
      * @param refreshToken 사용자로부터 넘겨 받은 refreshToken
      * @return 새로운 accessToken 이 담긴 JwtTokenResponse 객체
      */
     @Transactional
-    public JwtTokenResponse reissueToken(String refreshToken) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null) {
-            log.info("auth = {}", authentication);
-            throw new UserAuthException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
+    public JwtTokenResponse reissueToken(String accessToken, String refreshToken) {
+        Member member = getMemberFromAccessToken(accessToken);
+        RefreshToken redisRefreshToken = refreshTokenService.findByMemberId(member.getId());
+        if (redisRefreshToken == null) {
+            throw new UserAuthException(ExceptionMessage.TOKEN_VALID_TIME_EXPIRED);
         }
 
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        String username = userDetails.getUsername();
-        log.info("username = {}", username);
-
-        RefreshToken redisRefreshToken = refreshTokenService.findByUsername(username);
-        if (!refreshToken.equals(redisRefreshToken.getRefreshToken())) {
+        if (!refreshToken.equals(redisRefreshToken.getToken())) {
             log.info("refreshToken = {}", refreshToken);
-            log.info("redisRefreshToken = {}", redisRefreshToken.getRefreshToken());
+            log.info("redisRefreshToken = {}", redisRefreshToken.getToken());
             throw new UserAuthException(ExceptionMessage.MISMATCH_TOKEN);
         }
 
@@ -213,8 +233,7 @@ public class MemberService {
 //        Member member = memberRepository.findById(currentEmail).get();
 //        String password = passwordEncoder.encode(member.getPassword());
 
-        String reissueAccessToken = jwtTokenProvider.reissueToken(refreshToken, username, authentication);
-        return JwtTokenResponse.from(reissueAccessToken);
+        return jwtTokenProvider.generateToken(member);
     }
 
     public Optional<Member> findByProviderIdAndType(Long providerId, MemberType type) {
@@ -259,12 +278,22 @@ public class MemberService {
 
     private Member getMemberFromAccessToken(String accessToken) {
         String resolvedAccessToken = jwtTokenProvider.resolveToken(accessToken);
+        Long memberId = jwtTokenProvider.parseToken(resolvedAccessToken);
 
-        String[] split = jwtTokenProvider.parseToken(resolvedAccessToken).split("&");
-        String email = split[0];
-        MemberType type = MemberType.valueOf(split[1]);
-
-        return memberRepository.findByEmailAndType(email, type).
+        Member member =  memberRepository.findById(memberId).
                 orElseThrow(() -> new UserAuthException(ExceptionMessage.MISMATCH_USERNAME_TOKEN));
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            log.info("auth = {}", authentication);
+            throw new UserAuthException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
+        }
+
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        if (!userDetails.getUsername().equals(member.getUsername())) {
+            throw new UserAuthException(ExceptionMessage.NOT_AUTHORIZE_ACCESS);
+        }
+
+        return member;
     }
 }
