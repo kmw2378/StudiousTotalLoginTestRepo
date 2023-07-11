@@ -37,10 +37,15 @@ public class ExceptionHandlerAdvice {
     }
 
     @ExceptionHandler(value = WebClientResponseException.class)
-    public ResponseEntity<?> webClientExceptionHandler(WebClientResponseException e) {
+    public ResponseEntity<ExceptionDto> webClientExceptionHandler(WebClientResponseException e) {
         log.error("msg = {}", e.getMessage());
         log.error("status = {}", e.getStatusText());
         log.error("body = {} ", e.getResponseBodyAsString());
-        return new ResponseEntity<>("웹 API 호출 예외 발생. 자세한 건 서버 로그를 참고하세요.", HttpStatus.INTERNAL_SERVER_ERROR);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ExceptionDto.builder()
+                        .message("웹 API 호출 예외 발생. 자세한 건 서버 로그를 참고하세요.")
+                        .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                        .build()
+                );
     }
 }
