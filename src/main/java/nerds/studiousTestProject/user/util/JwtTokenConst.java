@@ -1,6 +1,6 @@
 package nerds.studiousTestProject.user.util;
 
-public class JwtTokenUtil {
+public class JwtTokenConst {
 
     // Token
     public static final Long ACCESS_TOKEN_EXPIRE_TIME = 1000L * 60 * 60;        // ACCESS 토큰 만료 시간 (1시간)
@@ -11,7 +11,6 @@ public class JwtTokenUtil {
     public static final String ALG_KEY = "alg";
     public static final String TYPE_KEY = "typ";
     public static final String TYPE_VALUE = "JWT";
-    public static final String TOKEN_HEADER = "Authorization";
     public static final String TOKEN_PREFIX = "Bearer";
     public static final String TOKEN_TYPE_REFRESH = "refresh_token";
     public static final String AUTHORITIES_KEY = "auth";
