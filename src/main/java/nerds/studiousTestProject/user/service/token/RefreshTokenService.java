@@ -1,13 +1,11 @@
 package nerds.studiousTestProject.user.service.token;
 
-import io.jsonwebtoken.Jwt;
 import lombok.RequiredArgsConstructor;
 import nerds.studiousTestProject.user.entity.token.RefreshToken;
 import nerds.studiousTestProject.user.exception.message.ExceptionMessage;
 import nerds.studiousTestProject.user.exception.model.TokenNotFoundException;
 import nerds.studiousTestProject.user.repository.token.RefreshTokenRepository;
-import nerds.studiousTestProject.user.util.DateConverter;
-import nerds.studiousTestProject.user.util.JwtTokenUtil;
+import nerds.studiousTestProject.user.util.JwtTokenConst;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,7 +18,7 @@ public class RefreshTokenService {
                 RefreshToken.from(
                         memberId,
                         refreshToken,
-                        JwtTokenUtil.REFRESH_TOKEN_EXPIRE_TIME
+                        JwtTokenConst.REFRESH_TOKEN_EXPIRE_TIME
                 )
         );
     }

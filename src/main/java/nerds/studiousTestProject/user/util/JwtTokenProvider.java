@@ -88,12 +88,12 @@ public class JwtTokenProvider {
         Date now = new Date();
 
         return Jwts.builder()
-                .setHeaderParam(JwtTokenUtil.ALG_KEY, SignatureAlgorithm.HS256.getValue())
-                .setHeaderParam(JwtTokenUtil.TYPE_KEY, JwtTokenUtil.TYPE_VALUE)
+                .setHeaderParam(JwtTokenConst.ALG_KEY, SignatureAlgorithm.HS256.getValue())
+                .setHeaderParam(JwtTokenConst.TYPE_KEY, JwtTokenConst.TYPE_VALUE)
                 .setSubject(String.valueOf(memberId))
                 .setIssuedAt(now)   // 토큰 발행 시간
-                .setExpiration(new Date(now.getTime() + JwtTokenUtil.ACCESS_TOKEN_EXPIRE_TIME))  // 만료시간 : 현재 + 1시간
-                .claim(JwtTokenUtil.AUTHORITIES_KEY, authorities)
+                .setExpiration(new Date(now.getTime() + JwtTokenConst.ACCESS_TOKEN_EXPIRE_TIME))  // 만료시간 : 현재 + 1시간
+                .claim(JwtTokenConst.AUTHORITIES_KEY, authorities)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -102,17 +102,17 @@ public class JwtTokenProvider {
         Date now = new Date();
 
         return Jwts.builder()
-                .setHeaderParam(JwtTokenUtil.ALG_KEY, SignatureAlgorithm.HS256.getValue())
-                .setHeaderParam(JwtTokenUtil.TYPE_KEY, JwtTokenUtil.TYPE_VALUE)
+                .setHeaderParam(JwtTokenConst.ALG_KEY, SignatureAlgorithm.HS256.getValue())
+                .setHeaderParam(JwtTokenConst.TYPE_KEY, JwtTokenConst.TYPE_VALUE)
                 .setIssuedAt(now)
-                .setExpiration(new Date(now.getTime() + JwtTokenUtil.REFRESH_TOKEN_EXPIRE_TIME))    // 만료 시간 : 현재 + 6시간
+                .setExpiration(new Date(now.getTime() + JwtTokenConst.REFRESH_TOKEN_EXPIRE_TIME))    // 만료 시간 : 현재 + 6시간
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
     public String resolveToken(String token) {
-        if (StringUtils.hasText(token) && token.startsWith(JwtTokenUtil.TOKEN_PREFIX + " ")) {
-            return token.substring(JwtTokenUtil.TOKEN_PREFIX.length() + 1);
+        if (StringUtils.hasText(token) && token.startsWith(JwtTokenConst.TOKEN_PREFIX + " ")) {
+            return token.substring(JwtTokenConst.TOKEN_PREFIX.length() + 1);
         }
 
         return null;
@@ -168,7 +168,7 @@ public class JwtTokenProvider {
     }
 
     public void setRefreshTokenAtCookie(RefreshToken refreshToken) {
-        Cookie cookie = new Cookie(JwtTokenUtil.TOKEN_TYPE_REFRESH, refreshToken.getToken());
+        Cookie cookie = new Cookie(JwtTokenConst.TOKEN_TYPE_REFRESH, refreshToken.getToken());
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setMaxAge(Math.toIntExact(refreshToken.getExpiration()));
