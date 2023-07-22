@@ -35,6 +35,8 @@ public class SecurityConfig {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeHttpRequests()
+                .requestMatchers("/studious/search/**").permitAll()
+                .requestMatchers("/studious/studycafe/test").permitAll()    // 테스트 용
                 .requestMatchers(CorsUtils::isPreFlightRequest).permitAll() // Preflight request에 대해, 인증을 하지 않고 모든 요청을 허용
                 .requestMatchers("/studious/members/signup", "/studious/members/login",  "/studious/oauth/authenticate/**").permitAll()    // 일반, 소셜 회원가입 및 로그인
                 .requestMatchers("/studious/members/logout", "/studious/members/reissue").hasAnyRole("USER", "ADMIN", "SUPER_ADMIN")  // 로그아웃, 토큰 재발급
